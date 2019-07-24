@@ -2,3 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+dep/
+R-tests/
+tests/
+dep/
+data-raw/
+RProfile.SITE
+*.Rproj

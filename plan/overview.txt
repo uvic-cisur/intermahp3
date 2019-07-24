@@ -1,0 +1,6 @@
+Key differences:
+	Relative risk data is internal, several options
+	Because of new RR data structure, R base integration is replaced by fixed finite sums at integer evaluation points
+	This means population statistics are immediately turned into related gamma distribution evaluations
+	Behaviour near 0 is unstable, but we were already explicitly trying to deal with this by setting 0.03 to be the hard lower bound
+	This will hopefully be so much faster than the previous implementation that fast Monte Carlo uncertainty intervals will be feasible

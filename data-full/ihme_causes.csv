@@ -1,0 +1,24 @@
+cause_name,im
+Tuberculosis,_11
+Lower respiratory infections,_13
+Esophageal cancer,_22
+Liver cancer,_24
+Larynx cancer,_28
+Breast cancer,_27
+Colon and rectum cancer,_23
+Lip and oral cavity cancer,_21
+Nasopharynx cancer,_29
+Pharynx cancer,_2A
+Ischemic heart disease,_52
+Ischemic stroke,_56
+Hemorrhagic stroke,_55
+Hypertensive heart disease,_51
+Atrial fibrillation and flutter,_54
+Cirrhosis,_62
+Pancreatitis,_66
+Epilepsy,_45
+Diabetes mellitus,_31
+Transport injuries,_71
+Unintentional injuries,_80
+Self-harm,_90
+Interpersonal violence,_94

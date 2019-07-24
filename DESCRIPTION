@@ -1,11 +1,28 @@
 Package: intermahp3
-Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Title: The International Model of Alcohol Harms and Policies
+Version: 0.0.3.0
+Authors@R:
+  person(
+    "Sam",
+    "Churchill",
+    email = "meadowschurchill@gmail.com", 
+    role = c("aut", "cre")
+  )
+Description:
+  R Implementation of CISUR's International Model of Alcohol Harms and Policies.
+  Intended mainly as a backend to the InterMAHP shiny app.
+  Includes base functionality of group-stratified AAF Computation along with
+  application to user-input Morbididty/Mortality counts and comparison of
+  expected consumption scenarios.
+Imports:
+  nloptr (>= 1.0.4),
+  tidyr (>= 0.8.1),
+  reshape2 (>= 1.4.3),
+  magrittr (>= 1.5),
+  tibble (>= 1.4.2),
+  dplyr (>= 0.7.5),
+  readr (>= 1.1.1),
+  purrr (>= 0.2.5)
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
