@@ -15,6 +15,7 @@ Description:
   application to user-input Morbididty/Mortality counts and comparison of
   expected consumption scenarios.
 Imports:
+  R6,
   nloptr (>= 1.0.4),
   tidyr (>= 0.8.1),
   reshape2 (>= 1.4.3),

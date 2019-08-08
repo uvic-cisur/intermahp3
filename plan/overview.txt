@@ -4,3 +4,11 @@ Key differences:
 	This means population statistics are immediately turned into related gamma distribution evaluations
 	Behaviour near 0 is unstable, but we were already explicitly trying to deal with this by setting 0.03 to be the hard lower bound
 	This will hopefully be so much faster than the previous implementation that fast Monte Carlo uncertainty intervals will be feasible
+
+Interface:
+	intermahp3 will be an API for Shiny App
+	in particular, we can eschew considerations for ease of use on the human-package-scripting front
+	
+Structure:
+	intermahp3 constructs an imodel object
+	imodels are reference classes
