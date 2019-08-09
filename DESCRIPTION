@@ -15,7 +15,8 @@ Description:
   application to user-input Morbididty/Mortality counts and comparison of
   expected consumption scenarios.
 Imports:
-  R6,
+  R6 (>= 2.4.0),
+  rlang (>= 0.3.4),
   nloptr (>= 1.0.4),
   tidyr (>= 0.8.1),
   reshape2 (>= 1.4.3),
@@ -27,3 +28,4 @@ Imports:
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 6.1.1
