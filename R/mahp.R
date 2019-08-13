@@ -83,22 +83,26 @@ mahp <- R6Class(
 
     ## Prepares a prevalence and consumption dataset
     add_pc = function(.data) {
-      self$pc <- .data
+      screen_pc(.data)
+      self$pc = .data
+      invisible(self)
     },
 
     ## Prepares a morbidity and mortality dataset
     add_mm = function(.data) {
-      self$mm <- .data
+      self$mm = .data
+      invisible(self)
     },
 
     ## Chooses a source for relative risk functions
     choose_rr = function(.char) {
-      self$rr <- eval(sym(.char))
+      self$rr = eval(sym(.char))
+      invisible(self)
     },
 
     ## Choose a risk extrapolation method
     choose_ext = function(.char) {
-      extrr(.char)
+      invisible(self)
     },
 
     ## Choose a predefined set of project settings
@@ -106,21 +110,25 @@ mahp <- R6Class(
       self$setbb(0)
       self$setub(0)
       self$setscc(0)
+      invisible(self)
     },
 
     ## Set binge consumption definitions
     set_bb = function(.numeric) {
       self$bb = .numeric
+      invisible(self)
     },
 
     ## Set upper bound on consumption
     set_ub = function(.numeric) {
       self$ub = .numeric
+      invisible(self)
     },
 
     ## Set squamous cell carcinoma proportions
     set_scc = function(.numeric) {
       self$scc = .numeric
+      invisible(self)
     },
 
     ## Evaluation --------------------------------------------------------------
@@ -133,18 +141,21 @@ mahp <- R6Class(
     ## consumption
     init_sk = function() {
       self$sk = tibble(x = 0)
+      invisible(self)
     },
 
     ## Adds new scenario attributable fractions and relative attributable
     ## fractions to the skeleton dataset
     add_scenario = function(.numeric) {
       self$sk = mutate(self$sk, (!! paste0('s', .numeric)) := 0)
+      invisible(self)
     },
 
     ## Adds a new set of drinking groups for each existing scenario
     ##
     add_group = function(.name, .list) {
       self$sk = mutate(self$sk, (!! .name) := 0)
+      invisible(self)
     }
 
     ## Results -----------------------------------------------------------------
