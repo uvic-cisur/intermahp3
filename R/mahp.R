@@ -68,10 +68,13 @@ mahp <- R6Class(
     ## Fields for lists and scalars.
     ## bb and scc are gender stratified, ub is universal.
     ## dg is a list of gender stratified vectors
+    ## ext is a boolean
     bb = NULL,
     scc = NULL,
     ub = NULL,
     dg = NULL,
+    ext = FALSE,
+
 
     ## Data --------------------------------------------------------------------
     ## Functions in this grouping relate to intermahp inputs.  These include

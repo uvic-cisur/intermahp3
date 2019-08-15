@@ -7,17 +7,18 @@
 #'@export
 
 screen_pc <- function(.data) {
+  if(is.null(.data)) {stop('No prevalence and consumption dataset supplied')}
   names(.data) = str_to_lower(names(.data))
   missing_vars = setdiff(imp$pc_vars, names(.data))
   extra_vars = setdiff(names(.data), imp$pc_vars)
   msg = ""
   stop_flag = FALSE
   if(length(missing_vars) > 0) {
-    msg = c(msg, "Prevalance and Consumption variables needed but not supplied:", paste0("\t", missing_vars, "\n"))
+    msg = c(msg, "Prevalance and Consumption variables needed but not supplied:\n", paste0("\t", missing_vars, "\n"))
     stop_flag = TRUE
   }
   if(length(extra_vars) > 0) {
-    msg = c(msg, "Prevalance and Consumption variables supplied but not needed:", paste0("\t", extra_vars, "\n"))
+    msg = c(msg, "Prevalance and Consumption variables supplied but not needed:\n", paste0("\t", extra_vars, "\n"))
   }
   message(msg)
   if(stop_flag) {
@@ -42,7 +43,7 @@ screen_pc <- function(.data) {
   where_diff = abs(p_check - 1) > 1e-4
   count_diff = sum(where_diff)
   if(count_diff > 0){
-    msg = c(msg, "The proportions of Lifetime Abstainers, Current Drinkers, and Former Drinkers must sum to 1 (tolerance 1e-4).  They do not sum to 1 in rows:", paste0("\t", which(where_diff), "\n"))
+    msg = c(msg, "The proportions of Lifetime Abstainers, Current Drinkers, and Former Drinkers must sum to 1 (tolerance 1e-4).  They do not sum to 1 in rows:\n", paste0("\t", which(where_diff), "\n"))
     stop_flag = TRUE
   }
   message(msg)
