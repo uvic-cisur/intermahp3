@@ -19,6 +19,12 @@ API for InterMAHP Shiny App
  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
    oesophageal cancers (only SCC is alcohol-caused)}
  \item{ub}{Upper bound of alcohol consumption}
+ \item{dg}{List of drinking groups (gender stratified)}
+ \item{ext}{Boolean indicating whether relative risk functions are
+   extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
+   of 150 grams per day}
+ \item{rr_str}{String indicating which relative risk function source we use.
+   his is used when the rr dataset needs updating via update_rr()}
 }
 }
 
@@ -32,27 +38,29 @@ API for InterMAHP Shiny App
 
 \code{$choose_rr()} Chooses a source for relative risk functions
 
-\code{$choose_ext()} Chooses a risk extrapolation method
-
 \code{$choose_project()} Chooses a predefined set of project settings
+
+\code{$set_ext()} Set risk extrapolation method (linear >> TRUE, capped >> FALSE)
 
 \code{$set_bb()} Sets binge consumption definitions
 
 \code{$set_ub()} Sets upper bound on consumption
 
 \code{$set_scc()} Sets squamous cell carcinoma proportions
+
+\code{$update_rr()} Updates stored rr dataset
 }
 
 \section{Evaluation Methods}{
 
-\code{$init_sk()}{ Initializes the skeleton computation dataset and evaluates
- at baseline consumption}
+\code{$init_sk()} Initializes the skeleton computation dataset and evaluates
+ at baseline consumption
 
-\code{$add_scenario()}{Adds new scenario attributable fractions and relative
+\code{$add_scenario()} Adds new scenario attributable fractions and relative
  attributable fractions to the skeleton dataset for each existing drinking
- group}
+ group
 
-\code{$add_group()}{Adds a new set of drinking groups for each existing
- scenario}
+\code{$add_group()} Adds a new set of drinking groups for each existing
+ scenario
 }
 
