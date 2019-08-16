@@ -48,7 +48,8 @@ API for InterMAHP Shiny App
 
 \code{$set_scc()} Sets squamous cell carcinoma proportions
 
-\code{$update_rr()} Updates stored rr dataset
+\code{$update_rr()} Updates the rr dataset according to the current values of
+ relevant variables
 }
 
 \section{Evaluation Methods}{

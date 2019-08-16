@@ -147,8 +147,80 @@ mahp <- R6Class(
 
     ## Updates the rr dataset according to the current values of relevant
     ## variables
-    update_rr = function(){
+    update_rr = function() {
 
+    },
+
+    ## Updates the pc dataset according to the current values of relevant
+    ## variables
+    update_pc = function() {
+      ## 'Magic' numbers
+      yearly_to_daily_conv = 0.002739726
+      litres_to_millilitres_conv = 1000
+      millilitres_to_grams_ethanol_conv = 0.7893
+
+      self$pc$ngamma = NULL
+      self$pc = self$pc %>%
+        group_by(region, year) %>%
+        mutate(
+          pcc_g_day =
+            pcc_litres_year *
+            litres_to_millilitres_conv *
+            millilitres_to_grams_ethanol_conv *
+            yearly_to_daily_conv *
+            correction_factor,
+          drinkers = population * p_cd
+        ) %>% mutate(
+          ## alcohol consumption over all age groups
+          pcad = pcc_g_day * sum(population) / sum(drinkers)
+        ) %>% mutate(
+          ## mean consumption per age group
+          pcc_among_drinkers = relative_consumption * pcad * sum(drinkers) /
+            sum(relative_consumption*drinkers)
+        ) %>%
+        ungroup() %>%
+        mutate(
+          gamma_cs = as.numeric(imp$gamma_cs[gender]),
+          bb = as.numeric(self$bb[gender])
+        ) %>%
+        mutate(
+          gamma_shape = 1 / gamma_cs,
+          gamma_scale = pcc_among_drinkers * gamma_cs
+        ) %>%
+        mutate(
+          glb = pgamma(q = 0.03, shape = gamma_shape, scale = gamma_scale),
+          gbb = pgamma(q = bb, shape = gamma_shape, scale = gamma_scale),
+          gub = pgamma(q = self$ub, shape = gamma_shape, scale = gamma_scale)
+        ) %>%
+        mutate(
+          nc = gub - glb
+        ) %>%
+        mutate(
+          df = p_cd / nc
+        ) %>%
+        mutate(
+          ngamma = pmap(
+            list(.x = gamma_shape, .y = gamma_scale, .z = df),
+            function(.x, .y, .z) {
+              .z * dgamma(x = 1:ceiling(self$ub), shape = .x, scale = .y)
+            }
+          )
+        ) %>%
+        mutate(
+          ## p_bat is "bingers above threshold", i.e. daily bingers on average.
+          ## If p_bat >= p_bd, we must fix this by deflating the tail of the gamma
+          ## distribution above the binge barrier and setting p_bat equal to p_bd.
+          p_bat = df * (gub - gbb)
+        ) %>%
+        mutate(
+          p_bat_error_correction = ifelse(p_bat > p_bd, p_bd / p_bat, 1),
+          p_bat = ifelse(p_bat > p_bd, p_bd, p_bat),
+          ## proportion of nonbingers and bingers "below threshold", i.e.
+          ## that are not daily bingers on average.  Used for CSUCH ischaemic
+          ## and injury RR's
+          non_bingers = (p_cd - p_bd)  / (p_cd - p_bat),
+          bingers = (p_bd - p_bat) / (p_cd - p_bat)
+        )
     },
 
     ## Evaluation --------------------------------------------------------------

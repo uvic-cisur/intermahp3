@@ -1,9 +1,17 @@
 ## code to prepare `imp` dataset goes here
 
 imp = list(
-  gamma_constant = list( # Means, Kehoe et al. (2012)
+  gamma_c = list( # means, Kehoe et al. (2012)
     "w" = 1.258,
     "m" = 1.171
+  ),
+  gamma_cs = list( # Squared means, Kehoe et al. (2012)
+    "w" = 1.258**2,
+    "m" = 1.171**2
+  ),
+  gamma_shape = list( # As a shape variable for gamma distribution
+    "w" = 1/1.258/1.258,
+    "m" = 1/1.171/1.171
   ),
   gamma_stderror = list( # Bounds on 95% CI, Kehoe et al. (2012)
     "w" = (1.293 - 1.223) / 2 / 1.96,
