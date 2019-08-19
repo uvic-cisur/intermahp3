@@ -11,18 +11,20 @@
 #'  \item{mm}{A dataset of mortality and morbidity counts}
 #'  \item{rr}{A dataset of relative risk function evaluations}
 #'  \item{sk}{A dataset skeleton used to perform aaf computations}
-#'  \item{af}{A long dataset of attributable fractions}
+#'  \item{paf}{A wide dataset of partially attributable fractions}
+#'  \item{waf}{A wide dataset of wholly attributable fractions}
 #'  \item{dg}{A list of gender-stratified drinking groups}
 #'  \item{bb}{Gender-stratified definition of binge drinking}
 #'  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
 #'    oesophageal cancers (only SCC is alcohol-caused)}
 #'  \item{ub}{Upper bound of alcohol consumption}
 #'  \item{dg}{List of drinking groups (gender stratified)}
+#'  \item{sn}{List of scenarios with names and mult. changes in consumption}
 #'  \item{ext}{Boolean indicating whether relative risk functions are
 #'    extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
 #'    of 150 grams per day}
-#'  \item{rr_str}{String indicating which relative risk function source we use.
-#'    his is used when the rr dataset needs updating via update_rr()}
+#'  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
+#'    curves for calibrable wholly attributable conditions}
 #'}
 #'
 #'@section Data Methods:
@@ -44,12 +46,9 @@
 #'
 #'\code{$set_scc()} Sets squamous cell carcinoma proportions
 #'
-#'\code{$update_rr()} Updates the rr dataset according to the current values of
-#'  relevant variables
-#'
 #'@section Evaluation Methods:
-#'\code{$init_sk()} Initializes the skeleton computation dataset and evaluates
-#'  at baseline consumption
+#'\code{$init_paf()} Initializes the skeleton computation dataset and evaluates
+#'  at baseline consumption for partially attributable conditions
 #'
 #'\code{$add_scenario()} Adds new scenario attributable fractions and relative
 #'  attributable fractions to the skeleton dataset for each existing drinking
@@ -71,8 +70,8 @@ mahp <- R6Class(
     pc = NULL,
     mm = NULL,
     rr = NULL,
-    sk = NULL,
-    af = NULL,
+    paf = NULL,
+    waf = NULL,
 
     ## Fields for lists and scalars.
     ## bb and scc are gender stratified, ub is universal.
@@ -82,8 +81,9 @@ mahp <- R6Class(
     scc = NULL,
     ub = NULL,
     dg = NULL,
+    sn = NULL,
     ext = NULL,
-    rr_str = NULL,
+    cal = NULL,
 
 
     ## Data --------------------------------------------------------------------
@@ -110,7 +110,13 @@ mahp <- R6Class(
 
     ## Chooses a source for relative risk functions
     choose_rr = function(.char) {
-      self$rr_str = eval(sym(.char))
+      if(is.null(.char)) {
+        message('No relative risk source selected')
+      } else if(!(.char %in% imp$rr_choices)) {
+        message(paste0('Relative risk source ', .char, 'unknown.'))
+      } else {
+        self$rr = eval(sym(paste0(.char, '_rr')))
+      }
       invisible(self)
     },
 
@@ -143,12 +149,6 @@ mahp <- R6Class(
     set_scc = function(.numeric) {
       self$scc = .numeric
       invisible(self)
-    },
-
-    ## Updates the rr dataset according to the current values of relevant
-    ## variables
-    update_rr = function() {
-
     },
 
     ## Updates the pc dataset according to the current values of relevant
@@ -231,22 +231,72 @@ mahp <- R6Class(
 
     ## Initializes the skeleton computation dataset and evaluates at baseline
     ## consumption
-    init_sk = function() {
-      self$sk = tibble(x = 0)
+    init_paf = function() {
+      screen_mahp(self)
+
+      ## Past here, we have necessary variables to initialize the skeleton
+      self$update_pc()
+
+      self$paf = full_join(
+        select(
+          self$pc,
+          region, year, gender, age_group,
+          p_fd, bb, bingers, non_bingers, p_bat_error_correction,
+          ngamma),
+        self$rr
+      ) %>%
+        mutate(
+          preventable_fraction = pmap(
+            list(.t = bb, .u = bingea,
+                 .v = p_bat_error_correction,
+                 .w = bingers, .x = non_bingers,
+                 .y = risk, .z = binge_risk),
+            function(.t, .u, .v, .w, .x, .y, .z) {
+              if(.u == 1) {
+                return(
+                  c( ## Risk values are stored as relative risk - 1
+                    .x * .y[1:ceiling(.t)] + .w * .z[1:ceiling(.t)],
+                    .v * .z[(ceiling(.t)+1):ceiling(self$ub)]
+                  )
+                )
+              } else {
+                .y[1:ceiling(self$ub)]
+              }
+            }
+          )
+        ) %>%
+        mutate(
+          cd_grand_1 = map2(preventable_fraction, ngamma, `*`)
+        ) %>%
+        mutate(
+          fd_comp = p_fd * (rr_fd - 1),
+          cd_comp_1 = map_dbl(cd_grand_1, sum)
+        ) %>%
+        mutate(
+          denom_1 = 1 + fd_comp + cd_comp_1
+        ) %>%
+        mutate(
+          af_current_1 = cd_comp_1 / denom_1,
+          af_former_1 = fd_comp / denom_1
+        ) %>%
+        mutate(
+          af_entire_1 = af_current_1 + af_former_1
+        )
+
       invisible(self)
     },
 
     ## Adds new scenario attributable fractions and relative attributable
-    ## fractions to the skeleton dataset
+    ## fractions to the partially attributable fraction dataset
     add_scenario = function(.numeric) {
-      self$sk = mutate(self$sk, (!! paste0('s', .numeric)) := 0)
+      self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
       invisible(self)
     },
 
     ## Adds a new set of drinking groups for each existing scenario
     ##
     add_group = function(.name, .list) {
-      self$sk = mutate(self$sk, (!! .name) := 0)
+      self$paf = mutate(self$paf, (!! .name) := 0)
       invisible(self)
     }
 

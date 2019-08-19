@@ -13,7 +13,8 @@ API for InterMAHP Shiny App
  \item{mm}{A dataset of mortality and morbidity counts}
  \item{rr}{A dataset of relative risk function evaluations}
  \item{sk}{A dataset skeleton used to perform aaf computations}
- \item{af}{A long dataset of attributable fractions}
+ \item{paf}{A wide dataset of partially attributable fractions}
+ \item{waf}{A wide dataset of wholly attributable fractions}
  \item{dg}{A list of gender-stratified drinking groups}
  \item{bb}{Gender-stratified definition of binge drinking}
  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
@@ -23,8 +24,8 @@ API for InterMAHP Shiny App
  \item{ext}{Boolean indicating whether relative risk functions are
    extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
    of 150 grams per day}
- \item{rr_str}{String indicating which relative risk function source we use.
-   his is used when the rr dataset needs updating via update_rr()}
+ \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
+   curves for calibrable wholly attributable conditions}
 }
 }
 
@@ -47,9 +48,6 @@ API for InterMAHP Shiny App
 \code{$set_ub()} Sets upper bound on consumption
 
 \code{$set_scc()} Sets squamous cell carcinoma proportions
-
-\code{$update_rr()} Updates the rr dataset according to the current values of
- relevant variables
 }
 
 \section{Evaluation Methods}{

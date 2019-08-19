@@ -1,0 +1,44 @@
+condition,im
+HIV,_12
+Colorectal cancer,_23
+Liver cancer,_24
+Pancreatic cancer,_25
+Breast cancer,_27
+Diabetes mellitus,_31
+Hypertension,_51
+Ischaemic heart disease,_52
+Haemorrhagic stroke,_55
+Ischaemic stroke,_56
+Oesophageal varices,_57
+Liver cirrhosis,_62
+Acute pancreatitis,_63
+Tuberculosis,_11
+Lower respiratory tract infections,_13
+Oral cavity and pharynx cancer,_21
+Oesophageal cancer,_22
+Larnygeal cancer,_26
+Alcohol-induced pseudo-Cushing's syndrome,_32
+Alcoholic psychoses,_41
+Alcohol abuse,_42
+Alcohol dependence,_43
+Degeneration of nervous system due to alcohol,_44
+Epilepsy,_45
+Alcoholic polyneuropathy,_46
+Alcoholic myopathy,_47
+Alcoholic cardiomyopathy,_53
+Atrial fibrillation and cardiac arrhythmia,_54
+Alcoholic gastritis,_61
+Chronic pancreatitis,_64
+Alcohol-induced pancreatitis,_65
+Motor vehicle collisions,_71
+Falls,_81
+Drowning,_82
+Fires,_83
+Accidental poisoning by substances other than alcohol,_84
+Accidental poisoning by alcohol,_85
+Other unintentional injuries,_86
+Intentional self-poisoning by substances other than alcohol,_91
+Intentional self-poisoning by alcohol,_92
+Other intentional self-harm,_93
+Assault / homicide,_94
+Other intentional injuries,_95

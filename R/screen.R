@@ -99,6 +99,7 @@ screen_vars = function(.data, .vars, .name) {
 #'the gender variable to have one of 2 values: w or m. In the frontend, we will
 #'include an interactive component for distributing uploaded values for gender.
 #'
+#'@export
 
 screen_gender = function(.char) {
   supplied_g = unique(.char)
@@ -116,5 +117,44 @@ screen_gender = function(.char) {
         stop_flag = FALSE
       )
     )
+  }
+}
+
+
+#' Screens the supplied mahp instance for missing variables
+#'
+#'@export
+
+screen_mahp = function(.mahp) {
+  msg = ''
+  stop_flag = FALSE
+  if(is.null(.mahp$pc)) {
+    msg = c(msg, 'Prevalence and Consumption dataset not provided.\n')
+    stop_flag = TRUE
+  }
+
+  if(is.null(.mahp$rr)) {
+    msg = c(msg, 'Relative risk source not chosen.\n')
+    stop_flag = TRUE
+  }
+
+  if(is.null(.mahp$ub)) {
+    msg = c(msg, 'Upper bound not set.\n')
+    stop_flag = TRUE
+  }
+
+  if(is.null(.mahp$bb)) {
+    msg = c(msg, 'Binge bounds not set.\n')
+    stop_flag = TRUE
+  }
+
+  if(is.null(.mahp$scc) & '_22' %in% .mahp$rr$im) {
+    msg = c(msg, 'Squamous cell carcinoma proportion of oesophageal cancers not set.\n')
+    stop_flag = TRUE
+  }
+
+  message(msg)
+  if(stop_flag) {
+    stop(msg)
   }
 }

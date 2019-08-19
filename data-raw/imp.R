@@ -39,6 +39,9 @@ imp = list(
     "age_group",
     "outcome",
     "count"
+  ),
+  rr_choices = c(
+    'csuch'
   )
 )
 
