@@ -53,16 +53,36 @@ v3mort = extra_thing %>% filter(outcome == "Mortality") %>% select(-outcome)
 
 v5mort = left_join(v3mort, v2mort2) %>%
   filter(!(im %in% paste0("_", c(44, 46, 47, 85, 92)))) %>%
-  mutate(diff = af_entire_1 - af_entire_2)
+  mutate(diff = af_entire_1 - af_entire_2) %>%
+  mutate(percent_diff = diff / af_entire_2)
 
-hist(v5mort$diff)
+hist(v5mort$percent_diff, breaks = (-40:40)/10)
+(-40:40)/10
+
 
 v5summary = v5mort %>%
   mutate(abs_diff = abs(diff)) %>%
   group_by(im) %>%
   summarise(mean_diff = mean(abs_diff), max_diff = max(abs_diff), min_diff = min(abs_diff))
 
+v5istroke = v5mort %>% filter(im == '_56')
+
 ggplot(v5summary, aes(x = im)) +
   geom_col(aes(y = max_diff)) +
   geom_col(aes(y = mean_diff), fill = 'red1') +
   geom_col(aes(y = min_diff), fill = 'cyan1')
+
+
+{
+  thing = mahp$new()
+  thing$choose_rr('ihme')
+  pc_checker = read_rds(file.path('U:SamChurchill', 'data', 'intermahpr_sample_pc.rds'))
+  pc_fixed = mutate(pc_checker, gender = ifelse(gender == 'Male', 'm', 'w'), correction_factor = 0.8)
+  thing$add_pc(pc_fixed)
+  thing$set_bb(list('w' = 50, 'm' = 60))
+  thing$set_scc(list('w' = .66, 'm' = .33))
+  thing$set_ub(150.5)
+  # thing$update_pc()
+  thing$init_paf()
+  # View(thing$sk)
+}

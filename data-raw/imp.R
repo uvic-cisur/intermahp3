@@ -41,7 +41,8 @@ imp = list(
     "count"
   ),
   rr_choices = c(
-    'csuch'
+    'csuch',
+    'ihme'
   )
 )
 

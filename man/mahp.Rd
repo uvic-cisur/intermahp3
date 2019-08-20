@@ -21,6 +21,7 @@ API for InterMAHP Shiny App
    oesophageal cancers (only SCC is alcohol-caused)}
  \item{ub}{Upper bound of alcohol consumption}
  \item{dg}{List of drinking groups (gender stratified)}
+ \item{sn}{List of scenarios with names and mult. changes in consumption}
  \item{ext}{Boolean indicating whether relative risk functions are
    extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
    of 150 grams per day}
@@ -52,8 +53,8 @@ API for InterMAHP Shiny App
 
 \section{Evaluation Methods}{
 
-\code{$init_sk()} Initializes the skeleton computation dataset and evaluates
- at baseline consumption
+\code{$init_paf()} Initializes the skeleton computation dataset and evaluates
+ at baseline consumption for partially attributable conditions
 
 \code{$add_scenario()} Adds new scenario attributable fractions and relative
  attributable fractions to the skeleton dataset for each existing drinking

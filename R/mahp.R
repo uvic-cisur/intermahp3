@@ -113,7 +113,7 @@ mahp <- R6Class(
       if(is.null(.char)) {
         message('No relative risk source selected')
       } else if(!(.char %in% imp$rr_choices)) {
-        message(paste0('Relative risk source ', .char, 'unknown.'))
+        message(paste0('Unknown relative risk source: ', .char))
       } else {
         self$rr = eval(sym(paste0(.char, '_rr')))
       }
