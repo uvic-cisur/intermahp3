@@ -10,7 +10,7 @@ csuch_rr0 = intermahpr_sample_rr %>%
   prepareRR(ext = T) %>%
   makeFreeFactories() %>%
   mutate(im = gsub('.(.)...(.).', '_\\1\\2', im)) %>%
-  mutate(bingea = 1 - as.numeric(grepl('^.[789]', im) | grepl('schaemic', condition))) %>%
+  mutate(bingea = as.numeric(grepl('^.[789]', im) | grepl('schaemic', condition))) %>%
   mutate(wholly_attr = attributability == 'Wholly') %>%
   mutate(gender = ifelse(gender == 'Male', 'm', 'w'))
 
@@ -19,7 +19,7 @@ csuch_rr0$risk = map(csuch_rr0$ext_risk, ~as.numeric(.x(1:250)) - 1)
 csuch_rr0$binge_risk = pmap(
   list(.x = csuch_rr0$bingef, .y = csuch_rr0$risk, .z = csuch_rr0$bingea),
   function(.x, .y, .z) {
-    .x * pmax(.y, 0 - .z)
+    pmax(.x * (.y + 1), .z) - 1
   }
 )
 
