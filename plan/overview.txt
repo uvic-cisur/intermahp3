@@ -10,5 +10,18 @@ Interface:
 	in particular, we can eschew considerations for ease of use on the human-package-scripting front
 	
 Structure:
-	intermahp3 constructs an imodel object
-	imodels are reference classes
+	intermahp3 constructs a mahp object
+	mahps are R6 classes
+
+AF Sheets:
+	These are produced as simply as possible
+	Split into Partially Attributable and Wholly Attributable
+	Further into Simple and Binge (i.e. just injuries and ischaemic, CSUCH Risks)
+	WA sheets are populated with 1's and 0's, then updated whenever scenarios and drinking groups are added
+	PA sheets are populated with baseline 100% consumption gammas, then updated whenever scenarios and drinking groups are added
+	Adding a new scenario involves adding a new gamma (or two new, for binge sheets), evaluating the scenario integrand and denominator,
+		then evaluating AFs for each drinking group
+	Evaluating the AF for a drinking group (other than FD) involves summing a subset of the scenario integrand with possible boundary
+		variation considerations, then division by the scenario denominator
+	Adding a new drinking group involves adding a new entry to the dg list, then evaluating the group's AFs for each scenario
+
