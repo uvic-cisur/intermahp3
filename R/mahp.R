@@ -265,7 +265,9 @@ mahp <- R6Class(
             }
           )
         ) %>%
+        ## Rest of mutates should be shuffled off into the add_scenario routines
         mutate(
+          ## TODO: rescale boundary values to reflect sub-integer interval defns
           cd_grand_1 = map2(preventable_fraction, ngamma, `*`)
         ) %>%
         mutate(
@@ -289,6 +291,9 @@ mahp <- R6Class(
     ## Adds new scenario attributable fractions and relative attributable
     ## fractions to the partially attributable fraction dataset
     add_scenario = function(.numeric) {
+      ## Implement scenarios by constructing new integrand vectors, constructing
+      ## the scenario's integrand, current drinker component, and denominator,
+      ## then evaluating afs for drinking groups
       self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
       invisible(self)
     },
@@ -296,6 +301,8 @@ mahp <- R6Class(
     ## Adds a new set of drinking groups for each existing scenario
     ##
     add_group = function(.name, .list) {
+      ## Implement groups by adding a name to the list, then evaluating the new
+      ## group for each scenario
       self$paf = mutate(self$paf, (!! .name) := 0)
       invisible(self)
     }
