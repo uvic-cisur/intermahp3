@@ -17,6 +17,17 @@ imp = list(
     "w" = (1.293 - 1.223) / 2 / 1.96,
     "m" = (1.197 - 1.144) / 2 / 1.96
   ),
+  rr_key_vars = c(
+    "gender",
+    "im",
+    "outcome"
+  ),
+  pc_key_vars = c(
+    "region",
+    "year",
+    "gender",
+    "age_group"
+  ),
   pc_vars = c(
     "region",
     "year",

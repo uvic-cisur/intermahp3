@@ -5,14 +5,12 @@
 #'
 #' API for InterMAHP Shiny App
 #'
-#'@section Fields:
+#'@section Input Fields:
 #'\describe{
 #'  \item{pc}{A dataset of alcohol consumption and prevalence}
 #'  \item{mm}{A dataset of mortality and morbidity counts}
 #'  \item{rr}{A dataset of relative risk function evaluations}
 #'  \item{sk}{A dataset skeleton used to perform aaf computations}
-#'  \item{paf}{A wide dataset of partially attributable fractions}
-#'  \item{waf}{A wide dataset of wholly attributable fractions}
 #'  \item{dg}{A list of gender-stratified drinking groups}
 #'  \item{bb}{Gender-stratified definition of binge drinking}
 #'  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
@@ -25,6 +23,16 @@
 #'    of 150 grams per day}
 #'  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
 #'    curves for calibrable wholly attributable conditions}
+#'}
+#'
+#'@section Computed Fields:
+#'\describe{
+#'  \item{base_paf}{A wide dataset of alcohol attributable fractions from
+#'    partially attributable causes not affected by bingeing}
+#'  \item{binge_paf}{A wide dataset of alcohol attributable fractions from
+#'    partially attributable causes affected by bingeing}
+#'  \item{waf}{A wide dataset of alcohol attributable fractions from wholly
+#'    attributable causes}
 #'}
 #'
 #'@section Data Methods:
@@ -45,6 +53,9 @@
 #'\code{$set_ub()} Sets upper bound on consumption
 #'
 #'\code{$set_scc()} Sets squamous cell carcinoma proportions
+#'
+#'\code{$make_gamma()} Makes base and binge gamma functions at the prescribed
+#'  level of consumption
 #'
 #'@section Evaluation Methods:
 #'\code{$init_paf()} Initializes the skeleton computation dataset and evaluates
@@ -70,7 +81,8 @@ mahp <- R6Class(
     pc = NULL,
     mm = NULL,
     rr = NULL,
-    paf = NULL,
+    base_paf = NULL,
+    binge_paf = NULL,
     waf = NULL,
 
     ## Fields for lists and scalars.
@@ -151,6 +163,146 @@ mahp <- R6Class(
       invisible(self)
     },
 
+    ## Makes base and binge gamma functions at the prescribed level of
+    ## consumption
+    make_gamma = function(consumption = 1,  binge_strat = FALSE) {
+      msg = ''
+      stop_flag = FALSE
+
+      ## Ensure prevalence and consumption data has been supplied
+      if(is.null(self$pc)) {
+        msg = c(msg, 'Prevalence and consumption data needed')
+        stop_flag = TRUE
+      }
+
+      if(stop_flag) {
+        stop(msg)
+      }
+
+      ## 'Magic' numbers
+      yearly_to_daily_conv = 0.002739726
+      litres_to_millilitres_conv = 1000
+      millilitres_to_grams_ethanol_conv = 0.7893
+
+      ## Make the base gamma function
+      base_gamma = self$pc %>%
+        group_by(region, year) %>%
+        mutate(
+          pcc_g_day =
+            pcc_litres_year *
+            litres_to_millilitres_conv *
+            millilitres_to_grams_ethanol_conv *
+            yearly_to_daily_conv *
+            correction_factor *
+            consumption,
+          drinkers = population * p_cd
+        ) %>% mutate(
+          ## alcohol consumption over all age groups
+          pcad = pcc_g_day * sum(population) / sum(drinkers)
+        ) %>% mutate(
+          ## mean consumption per age group
+          pcc_among_drinkers = relative_consumption * pcad * sum(drinkers) /
+            sum(relative_consumption*drinkers)
+        ) %>%
+        ungroup() %>%
+        mutate(
+          gamma_cs = as.numeric(imp$gamma_cs[gender]),
+          bb = as.numeric(self$bb[gender])
+        ) %>%
+        mutate(
+          gamma_shape = 1 / gamma_cs,
+          gamma_scale = pcc_among_drinkers * gamma_cs
+        ) %>%
+        mutate(
+          glb = pgamma(q = 0.03, shape = gamma_shape, scale = gamma_scale),
+          gbb = pgamma(q = bb, shape = gamma_shape, scale = gamma_scale),
+          gub = pgamma(q = self$ub, shape = gamma_shape, scale = gamma_scale)
+        ) %>%
+        mutate(
+          nc = gub - glb
+        ) %>%
+        mutate(
+          df = p_cd / nc
+        ) %>%
+        mutate(
+          base_gamma = pmap(
+            list(.x = gamma_shape, .y = gamma_scale, .z = df),
+            function(.x, .y, .z) {
+              .z * dgamma(x = 1:ceiling(self$ub), shape = .x, scale = .y)
+            }
+          )
+        ) %>%
+        mutate(
+          ## p_bat is "bingers above threshold", i.e. daily bingers on average.
+          ## If p_bat >= p_bd, we must fix this by deflating the tail of the gamma
+          ## distribution above the binge barrier and setting p_bat equal to p_bd.
+          p_bat = df * (gub - gbb)
+        ) %>%
+        mutate(
+          p_bat_ev = ifelse(p_bat > p_bd, p_bd / p_bat, 1)
+        )
+
+      ## Error correction is rare, so only do it if needed
+      base_gamma = if(isTRUE(all_equal(1, base_gamma$p_bat_ev))) {
+        base_gamma
+      } else {
+        ## Here we peel away gammas that need p_bat correction and recombine
+        base_gamma_nec = filter(base_gamma, p_bat == 1)
+        base_gamma_ec = filter(base_gamma, p_bat != 1) %>%
+          mutate(
+            p_bat_ec = map2(
+              p_bat_ev, bb,
+              ~ifelse(1:ceiling(self$ub) >= .y, 1, p_bat_ev)
+              # ~c(rep(1, floor(.y)), rep(p_bat_ev, ceiling(self$ub) - ceiling(.y) + 1))
+            )
+          ) %>%
+          mutate(
+            base_gamma = map2(base_gamma, p_bat_ec, `*`),
+            ## With that fixed, p_bat comes back to p_bd levels at most, and we
+            ## can use this quantity to split bingers and nonbingers below the
+            ## binge threshold
+            p_bat = ifelse(p_bat > p_bd, p_bd, p_bat)
+          )
+
+        bind_rows(base_gamma_nec, base_gamma_ec)
+      }
+
+      ## If we're building binge-stratified gammas, we split the base gamma here
+      ## and return the result
+      if(binge_strat) {
+        base_gamma %>%
+          mutate(
+            ## proportion of nonbingers and bingers "below threshold", i.e.
+            ## that are not daily bingers on average.  Used for CSUCH ischaemic
+            ## and injury RR's
+            non_bingers = (p_cd - p_bd)  / (p_cd - p_bat),
+            bingers = (p_bd - p_bat) / (p_cd - p_bat)
+          ) %>%
+          mutate(
+            non_binge_vector = map2(
+              non_bingers, bb,
+              ~ifelse(1:ceiling(self$ub) < .y, non_bingers, 0)
+              # ~c(rep(non_bingers, floor(.y)), rep(0, ceiling(self$ub) - ceiling(.y) + 1))
+            ),
+            binge_vector = map2(
+              bingers, bb,
+              ~ifelse(1:ceiling(self$ub) < .y, bingers, 1)
+              # ~c(rep(bingers, floor(.y)), rep(1, ceiling(self$ub) - ceiling(.y) + 1))
+            ),
+          ) %>%
+          mutate(
+            nonbinge_gamma = map2(base_gamma, non_binge_vector, `*`),
+            binge_gamma = map2(base_gamma, binge_vector, `*`)
+          ) %>%
+          select(c(imp$pc_key_vars, 'binge_gamma', 'nonbinge_gamma')) %>%
+          return()
+      } else {
+        base_gamma %>%
+          select(c(imp$pc_key_vars, 'base_gamma')) %>%
+          return()
+      }
+    },
+
     ## Updates the pc dataset according to the current values of relevant
     ## variables
     update_pc = function() {
@@ -199,7 +351,7 @@ mahp <- R6Class(
           df = p_cd / nc
         ) %>%
         mutate(
-          ngamma = pmap(
+          base_gamma = pmap(
             list(.x = gamma_shape, .y = gamma_scale, .z = df),
             function(.x, .y, .z) {
               .z * dgamma(x = 1:ceiling(self$ub), shape = .x, scale = .y)

@@ -6,15 +6,13 @@
 \description{
 API for InterMAHP Shiny App
 }
-\section{Fields}{
+\section{Input Fields}{
 
 \describe{
  \item{pc}{A dataset of alcohol consumption and prevalence}
  \item{mm}{A dataset of mortality and morbidity counts}
  \item{rr}{A dataset of relative risk function evaluations}
  \item{sk}{A dataset skeleton used to perform aaf computations}
- \item{paf}{A wide dataset of partially attributable fractions}
- \item{waf}{A wide dataset of wholly attributable fractions}
  \item{dg}{A list of gender-stratified drinking groups}
  \item{bb}{Gender-stratified definition of binge drinking}
  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
@@ -27,6 +25,18 @@ API for InterMAHP Shiny App
    of 150 grams per day}
  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
    curves for calibrable wholly attributable conditions}
+}
+}
+
+\section{Computed Fields}{
+
+\describe{
+ \item{base_paf}{A wide dataset of alcohol attributable fractions from
+   partially attributable causes not affected by bingeing}
+ \item{binge_paf}{A wide dataset of alcohol attributable fractions from
+   partially attributable causes affected by bingeing}
+ \item{waf}{A wide dataset of alcohol attributable fractions from wholly
+   attributable causes}
 }
 }
 
@@ -49,6 +59,9 @@ API for InterMAHP Shiny App
 \code{$set_ub()} Sets upper bound on consumption
 
 \code{$set_scc()} Sets squamous cell carcinoma proportions
+
+\code{$make_gamma()} Makes base and binge gamma functions at the prescribed
+ level of consumption
 }
 
 \section{Evaluation Methods}{
