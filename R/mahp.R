@@ -9,7 +9,7 @@
 #'\describe{
 #'  \item{pc}{A dataset of alcohol consumption and prevalence}
 #'  \item{mm}{A dataset of mortality and morbidity counts}
-#'  \item{rr}{A dataset of relative risk function evaluations}
+#'  \item{rr}{A list of relative risk function evaluation datasets}
 #'  \item{sk}{A dataset skeleton used to perform aaf computations}
 #'  \item{dg}{A list of gender-stratified drinking groups}
 #'  \item{bb}{Gender-stratified definition of binge drinking}
@@ -31,8 +31,15 @@
 #'    partially attributable causes not affected by bingeing}
 #'  \item{binge_paf}{A wide dataset of alcohol attributable fractions from
 #'    partially attributable causes affected by bingeing}
-#'  \item{waf}{A wide dataset of alcohol attributable fractions from wholly
-#'    attributable causes}
+#'  \item{scaled_base_waf}{A wide dataset of alcohol attributable fractions from
+#'    wholly attributable causes not affected by binging whose attributable
+#'    fractions are scaled forms of similar partially attributable forms}
+#'  \item{scaled_binge_waf}{A wide dataset of alcohol attributable fractions
+#'    from wholly attributable causes affected by binging whose attributable
+#'    fractions are scaled forms of similar partially attributable forms}
+#'  \item{calibrated_waf}{A wide dataset of alcohol attributable fractions from
+#'    wholly attributable causes whose risk functions are calibrated from
+#'    morbidity and mortality data}
 #'}
 #'
 #'@section Data Methods:
@@ -83,7 +90,9 @@ mahp <- R6Class(
     rr = NULL,
     base_paf = NULL,
     binge_paf = NULL,
-    waf = NULL,
+    scaled_base_waf = NULL,
+    scaled_binge_waf = NULL,
+    calibrated_waf = NULL,
 
     ## Fields for lists and scalars.
     ## bb and scc are gender stratified, ub is universal.
@@ -380,6 +389,28 @@ mahp <- R6Class(
     ## includes the computation of attributable fractions and uncertainty
     ## estimates.  Results of all computations are appended to the results field
     ## data sheet
+
+    ## Initialize and populate fraction sheets
+    init_fractions = function() {
+      screen_mahp(self)
+
+      ## init gammas and binge gammas
+      base_gamma = make_gamma(1, F)
+      binge_gammas = make_gamma(1, T)
+
+      ## init base fractions
+      base_paf = full_join(
+
+      )
+
+      ## init binge fractions
+
+      ## init base scaled fractions
+
+      ## init binge scaled fractions
+
+      ## init calibrated fractions
+    },
 
     ## Initializes the skeleton computation dataset and evaluates at baseline
     ## consumption
