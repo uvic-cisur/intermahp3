@@ -27,17 +27,20 @@ ihme_rr2 = ihme_rr2 %>%
 
 ihme_causes = read_csv(file.path('data-full', 'ihme_conditions.csv'))
 
-ihme_rr_base = left_join(ihme_rr2, ihme_causes, by = c('cause_name' = 'condition')) %>%
-  select(im, gender, outcome, risk)
-
-ihme_rr = list(
-  base = ihme_rr_base,
-  binge = NULL,
-  base_scaled = NULL,
-  binge_scaled = NULL,
-  calibrated = NULL,
-  im = ihme_rr_base$im %>% unique() %>% sort()
-)
+ihme_rr = left_join(ihme_rr2, ihme_causes, by = c('cause_name' = 'condition')) %>%
+  select(im, gender, outcome, risk) %>%
+  mutate(bingea = 0, wholly_attr = FALSE, r_fd = 0, binge_risk = NA)
+#
+# ihme_rr = list(
+#   base = ihme_rr_base,
+#   # base_former = NULL,
+#   # binge = NULL,
+#   # binge_former = NULL,
+#   # base_scaled = NULL,
+#   # binge_scaled = NULL,
+#   # calibrated = NULL,
+#   im = ihme_rr_base$im %>% unique() %>% sort()
+# )
 
 usethis::use_data(ihme_rr, overwrite = TRUE)
 

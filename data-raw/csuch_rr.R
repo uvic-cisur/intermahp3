@@ -12,7 +12,7 @@ csuch_rr_cal = csuch_rr0 %>%
   filter(form == 'Calibrated') %>%
   mutate(im = gsub('.(.)...(.).', '_\\1\\2', im)) %>%
   mutate(gender = ifelse(gender == 'Male', 'm', 'w')) %>%
-  select(im, condition, gender, outcome)
+  select(im, gender, outcome)
 
 csuch_rr_free = csuch_rr0 %>%
   filter(form != 'Calibrated') %>%
@@ -20,15 +20,19 @@ csuch_rr_free = csuch_rr0 %>%
   mutate(im = gsub('.(.)...(.).', '_\\1\\2', im)) %>%
   mutate(bingea = as.numeric(grepl('^.[789]', im) | grepl('schaemic', condition))) %>%
   mutate(wholly_attr = attributability == 'Wholly') %>%
-  mutate(gender = ifelse(gender == 'Male', 'm', 'w'))
+  mutate(gender = ifelse(gender == 'Male', 'm', 'w')) %>%
+  mutate(r_fd = rr_fd - 1)
 
 csuch_rr_free$risk = map(csuch_rr_free$ext_risk, ~as.numeric(.x(1:250)) - 1)
-csuch_rr_base = csuch_rr_free %>%
-  filter(bingea == 0 & !wholly_attr) %>%
-  select(im, gender, outcome, rr_fd, risk)
-csuch_rr_base_scaled = csuch_rr_free %>%
-  filter(bingea == 0 & wholly_attr) %>%
-  select(im, gender, outcome, risk)
+# csuch_rr_base = csuch_rr_free %>%
+#   filter(bingea == 0 & !wholly_attr & r_fd == 0) %>%
+#   select(im, gender, outcome, risk)
+# csuch_rr_base_former = csuch_rr_free %>%
+#   filter(bingea == 0 & !wholly_attr & r_fd != 0) %>%
+#   select(im, gender, outcome, r_fd, risk)
+# csuch_rr_base_scaled = csuch_rr_free %>%
+#   filter(bingea == 0 & wholly_attr) %>%
+#   select(im, gender, outcome, risk)
 
 csuch_rr_free$binge_risk = pmap(
   list(.x = csuch_rr_free$bingef, .y = csuch_rr_free$risk, .z = csuch_rr_free$bingea),
@@ -36,27 +40,36 @@ csuch_rr_free$binge_risk = pmap(
     pmax(.x * (.y + 1), .z) - 1
   }
 )
-csuch_rr_binge = csuch_rr_free %>%
-  filter(bingea == 1 & !wholly_attr) %>%
-  select(im, gender, outcome, rr_fd, risk, binge_risk)
-csuch_rr_binge_scaled = csuch_rr_free %>%
-  filter(bingea == 1 & wholly_attr) %>%
-  select(im, gender, outcome, risk, binge_risk)
+# csuch_rr_binge = csuch_rr_free %>%
+#   filter(bingea == 1 & !wholly_attr & r_fd == 0) %>%
+#   select(im, gender, outcome, risk, binge_risk)
+# csuch_rr_binge_former = csuch_rr_free %>%
+#   filter(bingea == 1 & !wholly_attr & r_fd != 0) %>%
+#   select(im, gender, outcome, r_fd, risk, binge_risk)
+# csuch_rr_binge_scaled = csuch_rr_free %>%
+#   filter(bingea == 1 & wholly_attr) %>%
+#   select(im, gender, outcome, risk, binge_risk)
 
-csuch_rr = list(
-  base = csuch_rr_base,
-  binge = csuch_rr_binge,
-  base_scaled = csuch_rr_base_scaled,
-  binge_scaled = csuch_rr_binge_scaled,
-  calibrated = csuch_rr_cal,
-  im = c(
-    csuch_rr_base$im,
-    csuch_rr_binge$im,
-    csuch_rr_base_scaled$im,
-    csuch_rr_binge_scaled$im,
-    csuch_rr_cal$im
-  ) %>% unique() %>% sort()
-)
+csuch_rr = bind_rows(csuch_rr_free, csuch_rr_cal)
+
+# csuch_rr = list(
+#   base = csuch_rr_base,
+#   base_former = csuch_rr_base_former,
+#   binge = csuch_rr_binge,
+#   binge_former = csuch_rr_binge_former,
+#   base_scaled = csuch_rr_base_scaled,
+#   binge_scaled = csuch_rr_binge_scaled,
+#   calibrated = csuch_rr_cal,
+#   im = c(
+#     csuch_rr_base$im,
+#     csuch_rr_base_former$im,
+#     csuch_rr_binge$im,
+#     csuch_rr_binge_former$im,
+#     csuch_rr_base_scaled$im,
+#     csuch_rr_binge_scaled$im,
+#     csuch_rr_cal$im
+#   ) %>% unique() %>% sort()
+# )
 
 
 # csuch_rr = csuch_rr0 %>%

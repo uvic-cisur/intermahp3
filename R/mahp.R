@@ -23,14 +23,22 @@
 #'    of 150 grams per day}
 #'  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
 #'    curves for calibrable wholly attributable conditions}
+#'  \item{rr_choice}{Character, relative risk source}
 #'}
 #'
 #'@section Computed Fields:
 #'\describe{
+#'  \item{af}{A list of the wide fraction datasets described below}
 #'  \item{base_paf}{A wide dataset of alcohol attributable fractions from
 #'    partially attributable causes not affected by bingeing}
+#'  \item{base_former_paf}{A wide dataset of alcohol attributable fractions from
+#'    partially attributable causes not affected by bingeing that still affect
+#'    former drinkers}
 #'  \item{binge_paf}{A wide dataset of alcohol attributable fractions from
 #'    partially attributable causes affected by bingeing}
+#'  \item{binge_former_paf}{A wide dataset of alcohol attributable fractions
+#'    from partially attributable causes affected by bingeing that still affect
+#'    former drinkers}
 #'  \item{scaled_base_waf}{A wide dataset of alcohol attributable fractions from
 #'    wholly attributable causes not affected by binging whose attributable
 #'    fractions are scaled forms of similar partially attributable forms}
@@ -61,6 +69,9 @@
 #'
 #'\code{$set_scc()} Sets squamous cell carcinoma proportions
 #'
+#'\code{$update_rr()} Updates relative risk function evaluations with latest
+#'  parameters
+#'
 #'\code{$make_gamma()} Makes base and binge gamma functions at the prescribed
 #'  level of consumption
 #'
@@ -88,11 +99,7 @@ mahp <- R6Class(
     pc = NULL,
     mm = NULL,
     rr = NULL,
-    base_paf = NULL,
-    binge_paf = NULL,
-    scaled_base_waf = NULL,
-    scaled_binge_waf = NULL,
-    calibrated_waf = NULL,
+    af = NULL,
 
     ## Fields for lists and scalars.
     ## bb and scc are gender stratified, ub is universal.
@@ -105,6 +112,7 @@ mahp <- R6Class(
     sn = NULL,
     ext = NULL,
     cal = NULL,
+    rr_choice = NULL,
 
 
     ## Data --------------------------------------------------------------------
@@ -136,7 +144,9 @@ mahp <- R6Class(
       } else if(!(.char %in% imp$rr_choices)) {
         message(paste0('Unknown relative risk source: ', .char))
       } else {
-        self$rr = eval(sym(paste0(.char, '_rr')))
+        self$rr_choice = .char
+        self$update_rr()
+        # self$rr = eval(sym(paste0(.char, '_rr')))
       }
       invisible(self)
     },
@@ -163,13 +173,84 @@ mahp <- R6Class(
     ## Set upper bound on consumption
     set_ub = function(.numeric) {
       self$ub = .numeric
+
+      if(.numeric > 250) {
+        message('Maximum permitted upper bound is 250 grams-ethanol per day.')
+      }
+      self$ub = min(self$ub, 250)
+
+      if(.numeric < 10) {
+        message('Minimum permitted upper bound is 10 grams-ethanol per day.')
+      }
+      self$ub = max(self$ub, 10)
+
+      self$update_rr()
+
       invisible(self)
     },
 
     ## Set squamous cell carcinoma proportions
     set_scc = function(.numeric) {
       self$scc = .numeric
+
+      self$update_rr()
+
       invisible(self)
+    },
+
+    ## Updates relative risk function evaluations with latest parameters
+    update_rr = function() {
+      if(!is.null(self$rr_choice)) {
+        temp_rr = eval(sym(paste0(self$rr_choice, '_rr')))
+
+        temp_rr = if(!is.null(self$scc) && '_22' %in% self$rr$im) {
+          rr_22 = temp_rr %>%
+            filter(im == '_22') %>%
+            ## Note, oesophageal cancer is not binge-affected in any risk source
+            mutate(risk = map2(risk, gender, ~ .x * self$scc[[.y]]))
+          bind_rows(
+            filter(temp_rr, im != '_22'),
+            rr_22
+          )
+        } else {
+          temp_rr
+        }
+
+        temp_rr = if(!is.null(self$ub)) {
+          mutate(
+            temp_rr,
+            risk = map(risk, ~.x[1:ceiling(self$ub)]),
+            binge_risk = map(binge_risk, ~.x[1:ceiling(self$ub)])
+          )
+        } else {
+          temp_rr
+        }
+
+        self$rr = list(
+            base = temp_rr %>%
+                filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
+                select(im, gender, outcome, risk),
+            base_former = temp_rr %>%
+                filter(bingea == 0 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
+                select(im, gender, outcome, r_fd, risk),
+            binge = temp_rr %>%
+                filter(bingea == 1 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
+                select(im, gender, outcome, risk, binge_risk),
+            binge_former = temp_rr %>%
+                filter(bingea == 1 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
+                select(im, gender, outcome, r_fd, risk, binge_risk),
+            base_scaled = temp_rr %>%
+                filter(bingea == 0 & wholly_attr & !is.na(risk)) %>%
+                select(im, gender, outcome, risk),
+            binge_scaled = temp_rr %>%
+                filter(bingea == 1 & wholly_attr & !is.na(risk)) %>%
+                select(im, gender, outcome, risk, binge_risk),
+            calibrated = temp_rr %>%
+              filter(is.na(risk)) %>%
+              select(im, gender, outcome),
+            im = temp_rr$im %>% unique() %>% sort()
+        )
+      }
     },
 
     ## Makes base and binge gamma functions at the prescribed level of
@@ -297,17 +378,17 @@ mahp <- R6Class(
               bingers, bb,
               ~ifelse(1:ceiling(self$ub) < .y, bingers, 1)
               # ~c(rep(bingers, floor(.y)), rep(1, ceiling(self$ub) - ceiling(.y) + 1))
-            ),
+            )
           ) %>%
           mutate(
             nonbinge_gamma = map2(base_gamma, non_binge_vector, `*`),
             binge_gamma = map2(base_gamma, binge_vector, `*`)
           ) %>%
-          select(c(imp$pc_key_vars, 'binge_gamma', 'nonbinge_gamma')) %>%
+          select(c(imp$pc_key_vars, 'p_fd', 'binge_gamma', 'nonbinge_gamma')) %>%
           return()
       } else {
         base_gamma %>%
-          select(c(imp$pc_key_vars, 'base_gamma')) %>%
+          select(c(imp$pc_key_vars, 'p_fd', 'base_gamma')) %>%
           return()
       }
     },
@@ -393,19 +474,86 @@ mahp <- R6Class(
     ## Initialize and populate fraction sheets
     init_fractions = function() {
       screen_mahp(self)
+      self$af = list()
 
       ## init gammas and binge gammas
-      base_gamma = make_gamma(1, F)
-      binge_gammas = make_gamma(1, T)
+      base_gamma = self$make_gamma(1, F)
+      binge_gammas = self$make_gamma(1, T)
 
       ## init base fractions
-      base_paf = full_join(
+      ## Naming conventions:
+      ##  *_#
+      ##  *: the measure type
+      ##  #: the consumption level, multiplicative
+      if(!is.null(self$rr$base)) {
+        self$af$base_paf = full_join(base_gamma, self$rr$base) %>%
+          mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
+          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000)
+      }
 
-      )
+      ## init base former fractions
+      if(!is.null(self$rr$base_former)) {
+        self$af$base_former_paf = full_join(base_gamma, self$rr$base_former) %>%
+          mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(former_comp = r_fd * p_fd) %>%
+          mutate(denominator_1.0000 = 1 + former_comp + current_comp_1.0000) %>%
+          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
+          mutate(former_drinker_af_1.0000 = former_comp / denominator_1.0000) %>%
+          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000)
+      }
 
       ## init binge fractions
+      if(!is.null(self$rr$binge)) {
+        self$af$binge_paf = full_join(binge_gammas, self$rr$binge) %>%
+          mutate(
+            integrand_1.0000 = pmap(
+              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+              function(.w, .x, .y, .z) {
+                (.w * .y) + (.x * .z)
+              }
+            )
+          ) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
+          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000)
+      }
 
+      ## init binge former fractions
+      if(!is.null(self$rr$binge_former)) {
+        self$af$binge_former_paf = full_join(binge_gammas, self$rr$binge_former) %>%
+          mutate(
+            integrand_1.0000 = pmap(
+              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+              function(.w, .x, .y, .z) {
+                (.w * .y) + (.x * .z)
+              }
+            )
+          ) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(former_comp = r_fd * p_fd) %>%
+          mutate(denominator_1.0000 = 1 + former_comp + current_comp_1.0000) %>%
+          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
+          mutate(former_drinker_af_1.0000 = former_comp / denominator_1.0000) %>%
+          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000)
+      }
       ## init base scaled fractions
+      if(!is.null(self$rr$base_scaled)) {
+        self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled) %>%
+          mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(scaling_factor_1.0000 = denominator_1.0000 / current_comp_1.0000) %>%
+          mutate(integrand_1.0000 = map2(integrand_1.0000, scaling_factor_1.0000, `*`)) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(current_drinker_af_1.0000 = 1) %>%
+          mutate(entire_population_af_1.0000 = 1)
+      }
 
       ## init binge scaled fractions
 

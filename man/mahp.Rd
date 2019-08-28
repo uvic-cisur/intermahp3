@@ -11,7 +11,7 @@ API for InterMAHP Shiny App
 \describe{
  \item{pc}{A dataset of alcohol consumption and prevalence}
  \item{mm}{A dataset of mortality and morbidity counts}
- \item{rr}{A dataset of relative risk function evaluations}
+ \item{rr}{A list of relative risk function evaluation datasets}
  \item{sk}{A dataset skeleton used to perform aaf computations}
  \item{dg}{A list of gender-stratified drinking groups}
  \item{bb}{Gender-stratified definition of binge drinking}
@@ -25,18 +25,33 @@ API for InterMAHP Shiny App
    of 150 grams per day}
  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
    curves for calibrable wholly attributable conditions}
+ \item{rr_choice}{Character, relative risk source}
 }
 }
 
 \section{Computed Fields}{
 
 \describe{
+ \item{af}{A list of the wide fraction datasets described below}
  \item{base_paf}{A wide dataset of alcohol attributable fractions from
    partially attributable causes not affected by bingeing}
+ \item{base_former_paf}{A wide dataset of alcohol attributable fractions from
+   partially attributable causes not affected by bingeing that still affect
+   former drinkers}
  \item{binge_paf}{A wide dataset of alcohol attributable fractions from
    partially attributable causes affected by bingeing}
- \item{waf}{A wide dataset of alcohol attributable fractions from wholly
-   attributable causes}
+ \item{binge_former_paf}{A wide dataset of alcohol attributable fractions
+   from partially attributable causes affected by bingeing that still affect
+   former drinkers}
+ \item{scaled_base_waf}{A wide dataset of alcohol attributable fractions from
+   wholly attributable causes not affected by binging whose attributable
+   fractions are scaled forms of similar partially attributable forms}
+ \item{scaled_binge_waf}{A wide dataset of alcohol attributable fractions
+   from wholly attributable causes affected by binging whose attributable
+   fractions are scaled forms of similar partially attributable forms}
+ \item{calibrated_waf}{A wide dataset of alcohol attributable fractions from
+   wholly attributable causes whose risk functions are calibrated from
+   morbidity and mortality data}
 }
 }
 
@@ -59,6 +74,9 @@ API for InterMAHP Shiny App
 \code{$set_ub()} Sets upper bound on consumption
 
 \code{$set_scc()} Sets squamous cell carcinoma proportions
+
+\code{$update_rr()} Updates relative risk function evaluations with latest
+ parameters
 
 \code{$make_gamma()} Makes base and binge gamma functions at the prescribed
  level of consumption
