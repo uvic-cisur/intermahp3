@@ -84,8 +84,7 @@ API for InterMAHP Shiny App
 
 \section{Evaluation Methods}{
 
-\code{$init_paf()} Initializes the skeleton computation dataset and evaluates
- at baseline consumption for partially attributable conditions
+\code{$init_fractions} Initialize and populate fraction sheets
 
 \code{$add_scenario()} Adds new scenario attributable fractions and relative
  attributable fractions to the skeleton dataset for each existing drinking

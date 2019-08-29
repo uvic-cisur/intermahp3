@@ -76,8 +76,7 @@
 #'  level of consumption
 #'
 #'@section Evaluation Methods:
-#'\code{$init_paf()} Initializes the skeleton computation dataset and evaluates
-#'  at baseline consumption for partially attributable conditions
+#'\code{$init_fractions} Initialize and populate fraction sheets
 #'
 #'\code{$add_scenario()} Adds new scenario attributable fractions and relative
 #'  attributable fractions to the skeleton dataset for each existing drinking
@@ -139,6 +138,9 @@ mahp <- R6Class(
 
     ## Chooses a source for relative risk functions
     choose_rr = function(.char) {
+
+      ## First check that the source is valid, then set the source and update
+      ## risk set
       if(is.null(.char)) {
         message('No relative risk source selected')
       } else if(!(.char %in% imp$rr_choices)) {
@@ -153,19 +155,22 @@ mahp <- R6Class(
 
     ## Choose a predefined set of project settings
     choose_project = function(.char) {
-      self$setbb(0)
-      self$setub(0)
-      self$setscc(0)
+      self$setbb(c('w' = 50, 'm' = 60))
+      self$setub(250)
+      self$setscc(c('w' = 1, 'm' = 1))
       invisible(self)
     },
 
     ## Set risk extrapolation method (linear >> TRUE, capped >> FALSE)
     set_ext = function(.char) {
+      ## Different extrapolation types not yet implemented yet.  Will be enacted
+      ## in the update_rr function
       invisible(self)
     },
 
     ## Set binge consumption definitions
     set_bb = function(.numeric) {
+      ## TODO: Ensure gender-stratified and within reasonable parameters
       self$bb = .numeric
       invisible(self)
     },
@@ -191,6 +196,8 @@ mahp <- R6Class(
 
     ## Set squamous cell carcinoma proportions
     set_scc = function(.numeric) {
+      ## TODO: Ensure gender-stratified and within reasonable parameters
+
       self$scc = .numeric
 
       self$update_rr()
@@ -201,8 +208,11 @@ mahp <- R6Class(
     ## Updates relative risk function evaluations with latest parameters
     update_rr = function() {
       if(!is.null(self$rr_choice)) {
+        ## Start with the basic function evaluations 1:250
         temp_rr = eval(sym(paste0(self$rr_choice, '_rr')))
 
+        ## If we've set scc proportions and 22 is part of the risk set being
+        ## considered, we apply the proportions directly to the risks.
         temp_rr = if(!is.null(self$scc) && '_22' %in% self$rr$im) {
           rr_22 = temp_rr %>%
             filter(im == '_22') %>%
@@ -216,6 +226,8 @@ mahp <- R6Class(
           temp_rr
         }
 
+        ## Subset the risk function evaluations now to match the length of the
+        ## gamma vector evaluations
         temp_rr = if(!is.null(self$ub)) {
           mutate(
             temp_rr,
@@ -226,6 +238,10 @@ mahp <- R6Class(
           temp_rr
         }
 
+        ## Categorize risk functions by methodology.
+        ## Note that IHME fits entirely into the $base category, while CSUCH and
+        ## related require all categories.  Calibrated category should be able
+        ## to be used by all.
         self$rr = list(
             base = temp_rr %>%
                 filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
@@ -278,6 +294,8 @@ mahp <- R6Class(
       base_gamma = self$pc %>%
         group_by(region, year) %>%
         mutate(
+          ## Convert litres/year into grams/day and apply any scenario
+          ## consumption delta
           pcc_g_day =
             pcc_litres_year *
             litres_to_millilitres_conv *
@@ -296,6 +314,8 @@ mahp <- R6Class(
         ) %>%
         ungroup() %>%
         mutate(
+          ## Set gamma constants and binge levels (otherwise we have a loooot of
+          ## vector lookups)
           gamma_cs = as.numeric(imp$gamma_cs[gender]),
           bb = as.numeric(self$bb[gender])
         ) %>%
@@ -309,12 +329,18 @@ mahp <- R6Class(
           gub = pgamma(q = self$ub, shape = gamma_shape, scale = gamma_scale)
         ) %>%
         mutate(
+          ## The total area under the given gamma function within the specified
+          ## bounds
           nc = gub - glb
         ) %>%
         mutate(
+          ## Deflation factor --- the consumption measure must have area exactly
+          ## p_cd within the specified bounds
           df = p_cd / nc
         ) %>%
         mutate(
+          ## The base gamma is just a deflated gamma function.  We evaluate from
+          ## 1 to the upper bound
           base_gamma = pmap(
             list(.x = gamma_shape, .y = gamma_scale, .z = df),
             function(.x, .y, .z) {
@@ -337,16 +363,20 @@ mahp <- R6Class(
         base_gamma
       } else {
         ## Here we peel away gammas that need p_bat correction and recombine
-        base_gamma_nec = filter(base_gamma, p_bat == 1)
-        base_gamma_ec = filter(base_gamma, p_bat != 1) %>%
+        base_gamma_nec = filter(base_gamma, p_bat_ev == 1)
+        base_gamma_ec = filter(base_gamma, p_bat_ev != 1) %>%
           mutate(
+            ## When we need to rescale the tail beyond binge threshold (i.e.
+            ## when the rescaling constant p_bat_ev is different from 1) we
+            ## construct a vector of 1's up to binge and rescaling constant on
+            ## the tail.
             p_bat_ec = map2(
               p_bat_ev, bb,
               ~ifelse(1:ceiling(self$ub) >= .y, 1, p_bat_ev)
-              # ~c(rep(1, floor(.y)), rep(p_bat_ev, ceiling(self$ub) - ceiling(.y) + 1))
             )
           ) %>%
           mutate(
+            ## And then apply this rescaling vector to the base_gamma
             base_gamma = map2(base_gamma, p_bat_ec, `*`),
             ## With that fixed, p_bat comes back to p_bd levels at most, and we
             ## can use this quantity to split bingers and nonbingers below the
@@ -369,18 +399,25 @@ mahp <- R6Class(
             bingers = (p_bd - p_bat) / (p_cd - p_bat)
           ) %>%
           mutate(
+            ## The non-binge vector is the proportion of non-bingers within the
+            ## base gamma function at each integer consumption level.  It is of
+            ## course 0 above the binge threshold.
             non_binge_vector = map2(
               non_bingers, bb,
               ~ifelse(1:ceiling(self$ub) < .y, non_bingers, 0)
-              # ~c(rep(non_bingers, floor(.y)), rep(0, ceiling(self$ub) - ceiling(.y) + 1))
             ),
+            ## The binge vector is the proportion of bingers within the base
+            ## gamma function at each integer consumption level.  It is of
+            ## course 1 above the binge threshold.
             binge_vector = map2(
               bingers, bb,
               ~ifelse(1:ceiling(self$ub) < .y, bingers, 1)
-              # ~c(rep(bingers, floor(.y)), rep(1, ceiling(self$ub) - ceiling(.y) + 1))
             )
           ) %>%
           mutate(
+            ## Construct the corresponding binger and nonbingers consumption
+            ## measures through multiplication with the binge and nonbinge
+            ## proportionality vectors
             nonbinge_gamma = map2(base_gamma, non_binge_vector, `*`),
             binge_gamma = map2(base_gamma, binge_vector, `*`)
           ) %>%
@@ -391,78 +428,6 @@ mahp <- R6Class(
           select(c(imp$pc_key_vars, 'p_fd', 'base_gamma')) %>%
           return()
       }
-    },
-
-    ## Updates the pc dataset according to the current values of relevant
-    ## variables
-    update_pc = function() {
-      ## 'Magic' numbers
-      yearly_to_daily_conv = 0.002739726
-      litres_to_millilitres_conv = 1000
-      millilitres_to_grams_ethanol_conv = 0.7893
-
-      self$pc$ngamma = NULL
-      self$pc = self$pc %>%
-        group_by(region, year) %>%
-        mutate(
-          pcc_g_day =
-            pcc_litres_year *
-            litres_to_millilitres_conv *
-            millilitres_to_grams_ethanol_conv *
-            yearly_to_daily_conv *
-            correction_factor,
-          drinkers = population * p_cd
-        ) %>% mutate(
-          ## alcohol consumption over all age groups
-          pcad = pcc_g_day * sum(population) / sum(drinkers)
-        ) %>% mutate(
-          ## mean consumption per age group
-          pcc_among_drinkers = relative_consumption * pcad * sum(drinkers) /
-            sum(relative_consumption*drinkers)
-        ) %>%
-        ungroup() %>%
-        mutate(
-          gamma_cs = as.numeric(imp$gamma_cs[gender]),
-          bb = as.numeric(self$bb[gender])
-        ) %>%
-        mutate(
-          gamma_shape = 1 / gamma_cs,
-          gamma_scale = pcc_among_drinkers * gamma_cs
-        ) %>%
-        mutate(
-          glb = pgamma(q = 0.03, shape = gamma_shape, scale = gamma_scale),
-          gbb = pgamma(q = bb, shape = gamma_shape, scale = gamma_scale),
-          gub = pgamma(q = self$ub, shape = gamma_shape, scale = gamma_scale)
-        ) %>%
-        mutate(
-          nc = gub - glb
-        ) %>%
-        mutate(
-          df = p_cd / nc
-        ) %>%
-        mutate(
-          base_gamma = pmap(
-            list(.x = gamma_shape, .y = gamma_scale, .z = df),
-            function(.x, .y, .z) {
-              .z * dgamma(x = 1:ceiling(self$ub), shape = .x, scale = .y)
-            }
-          )
-        ) %>%
-        mutate(
-          ## p_bat is "bingers above threshold", i.e. daily bingers on average.
-          ## If p_bat >= p_bd, we must fix this by deflating the tail of the gamma
-          ## distribution above the binge barrier and setting p_bat equal to p_bd.
-          p_bat = df * (gub - gbb)
-        ) %>%
-        mutate(
-          p_bat_error_correction = ifelse(p_bat > p_bd, p_bd / p_bat, 1),
-          p_bat = ifelse(p_bat > p_bd, p_bd, p_bat),
-          ## proportion of nonbingers and bingers "below threshold", i.e.
-          ## that are not daily bingers on average.  Used for CSUCH ischaemic
-          ## and injury RR's
-          non_bingers = (p_cd - p_bd)  / (p_cd - p_bat),
-          bingers = (p_bd - p_bat) / (p_cd - p_bat)
-        )
     },
 
     ## Evaluation --------------------------------------------------------------
@@ -480,11 +445,15 @@ mahp <- R6Class(
       base_gamma = self$make_gamma(1, F)
       binge_gammas = self$make_gamma(1, T)
 
-      ## init base fractions
-      ## Naming conventions:
+      ## Naming conventions for fractions:
       ##  *_#
       ##  *: the measure type
-      ##  #: the consumption level, multiplicative
+      ##  #: the consumption level, multiplicative, 4 digits granularity
+
+      ## init base fractions
+      ## These are the simplest type and occur most frequently in our risk
+      ## sources.  All of the IHME risk sources live here. Risk for former
+      ## drinkers and bingers are unchanged.
       if(!is.null(self$rr$base)) {
         self$af$base_paf = full_join(base_gamma, self$rr$base) %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
@@ -542,6 +511,7 @@ mahp <- R6Class(
           mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000)
       }
       ## init base scaled fractions
+      ## TODO:: This is still wrong, gotta fix somehow
       if(!is.null(self$rr$base_scaled)) {
         self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled) %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
@@ -556,67 +526,30 @@ mahp <- R6Class(
       }
 
       ## init binge scaled fractions
-
-      ## init calibrated fractions
-    },
-
-    ## Initializes the skeleton computation dataset and evaluates at baseline
-    ## consumption
-    init_paf = function() {
-      screen_mahp(self)
-
-      ## Past here, we have necessary variables to initialize the skeleton
-      self$update_pc()
-
-      self$paf = full_join(
-        select(
-          self$pc,
-          region, year, gender, age_group,
-          p_fd, bb, bingers, non_bingers, p_bat_error_correction,
-          ngamma),
-        self$rr
-      ) %>%
-        mutate(
-          preventable_fraction = pmap(
-            list(.t = bb, .u = bingea,
-                 .v = p_bat_error_correction,
-                 .w = bingers, .x = non_bingers,
-                 .y = risk, .z = binge_risk),
-            function(.t, .u, .v, .w, .x, .y, .z) {
-              if(.u == 1) {
-                return(
-                  c( ## Risk values are stored as relative risk - 1
-                    .x * .y[1:ceiling(.t)] + .w * .z[1:ceiling(.t)],
-                    .v * .z[(ceiling(.t)+1):ceiling(self$ub)]
-                  )
-                )
-              } else {
-                .y[1:ceiling(self$ub)]
+      ## TODO:: Copypaste of structures above, so also currently wrong.
+      if(!is.null(self$rr$binge_scaled)) {
+        self$af$binge_paf = full_join(binge_gammas, self$rr$binge) %>%
+          mutate(
+            integrand_1.0000 = pmap(
+              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+              function(.w, .x, .y, .z) {
+                (.w * .y) + (.x * .z)
               }
-            }
-          )
-        ) %>%
-        ## Rest of mutates should be shuffled off into the add_scenario routines
-        mutate(
-          ## TODO: rescale boundary values to reflect sub-integer interval defns
-          cd_grand_1 = map2(preventable_fraction, ngamma, `*`)
-        ) %>%
-        mutate(
-          fd_comp = p_fd * (rr_fd - 1),
-          cd_comp_1 = map_dbl(cd_grand_1, sum)
-        ) %>%
-        mutate(
-          denom_1 = 1 + fd_comp + cd_comp_1
-        ) %>%
-        mutate(
-          af_current_1 = cd_comp_1 / denom_1,
-          af_former_1 = fd_comp / denom_1
-        ) %>%
-        mutate(
-          af_entire_1 = af_current_1 + af_former_1
-        )
+            )
+          ) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(scaling_factor_1.0000 = denominator_1.0000 / current_comp_1.0000) %>%
+          mutate(integrand_1.0000 = map2(integrand_1.0000, scaling_factor_1.0000, `*`)) %>%
+          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(current_drinker_af_1.0000 = 1) %>%
+          mutate(entire_population_af_1.0000 = 1)
+      }
+      ## init calibrated fractions
+      if(!is.null(self$rr$calibrated)) {
 
-      invisible(self)
+      }
     },
 
     ## Adds new scenario attributable fractions and relative attributable

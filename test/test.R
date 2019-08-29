@@ -115,3 +115,17 @@ ggplot(v5summary, aes(x = im)) +
   thing$init_fractions()
   # View(thing$sk)
 }
+
+{
+  thing = mahp$new()
+  thing$choose_rr('ihme')
+  pc_checker = readr::read_rds(file.path('U:SamChurchill', 'data', 'intermahpr_sample_pc.rds'))
+  pc_fixed = dplyr::mutate(pc_checker, gender = ifelse(gender == 'Male', 'm', 'w'), correction_factor = 0.8)
+  thing$add_pc(pc_fixed)
+  thing$set_bb(list('w' = 50, 'm' = 60))
+  thing$set_scc(list('w' = .66, 'm' = .33))
+  thing$set_ub(150.5)
+  # thing$update_pc()
+  thing$init_fractions()
+  # View(thing$sk)
+}
