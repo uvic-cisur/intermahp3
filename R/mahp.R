@@ -455,29 +455,31 @@ mahp <- R6Class(
       ## sources.  All of the IHME risk sources live here. Risk for former
       ## drinkers and bingers are unchanged.
       if(!is.null(self$rr$base)) {
-        self$af$base_paf = full_join(base_gamma, self$rr$base) %>%
+        self$af$base_paf = full_join(base_gamma, self$rr$base, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
           mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
           mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000)
+          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000) %>%
+          select(-p_fd, -base_gamma)
       }
 
       ## init base former fractions
       if(!is.null(self$rr$base_former)) {
-        self$af$base_former_paf = full_join(base_gamma, self$rr$base_former) %>%
+        self$af$base_former_paf = full_join(base_gamma, self$rr$base_former, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
           mutate(former_comp = r_fd * p_fd) %>%
           mutate(denominator_1.0000 = 1 + former_comp + current_comp_1.0000) %>%
           mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
           mutate(former_drinker_af_1.0000 = former_comp / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000)
+          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000) %>%
+          select(-p_fd, -base_gamma)
       }
 
       ## init binge fractions
       if(!is.null(self$rr$binge)) {
-        self$af$binge_paf = full_join(binge_gammas, self$rr$binge) %>%
+        self$af$binge_paf = full_join(binge_gammas, self$rr$binge, by = 'gender') %>%
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
@@ -489,12 +491,13 @@ mahp <- R6Class(
           mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
           mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
           mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000)
+          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000) %>%
+          select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
 
       ## init binge former fractions
       if(!is.null(self$rr$binge_former)) {
-        self$af$binge_former_paf = full_join(binge_gammas, self$rr$binge_former) %>%
+        self$af$binge_former_paf = full_join(binge_gammas, self$rr$binge_former, by = 'gender') %>%
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
@@ -508,27 +511,26 @@ mahp <- R6Class(
           mutate(denominator_1.0000 = 1 + former_comp + current_comp_1.0000) %>%
           mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
           mutate(former_drinker_af_1.0000 = former_comp / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000)
+          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000) %>%
+          select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
       ## init base scaled fractions
-      ## TODO:: This is still wrong, gotta fix somehow
       if(!is.null(self$rr$base_scaled)) {
-        self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled) %>%
+        self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
           mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          ## Scaling factor is used post-hoc for drinking groups and scenarios.
+          ## For current drinkers and entire population we just get values of 1
           mutate(scaling_factor_1.0000 = denominator_1.0000 / current_comp_1.0000) %>%
-          mutate(integrand_1.0000 = map2(integrand_1.0000, scaling_factor_1.0000, `*`)) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
           mutate(current_drinker_af_1.0000 = 1) %>%
-          mutate(entire_population_af_1.0000 = 1)
+          mutate(entire_population_af_1.0000 = 1) %>%
+          select(-p_fd, -base_gamma)
       }
 
       ## init binge scaled fractions
-      ## TODO:: Copypaste of structures above, so also currently wrong.
       if(!is.null(self$rr$binge_scaled)) {
-        self$af$binge_paf = full_join(binge_gammas, self$rr$binge) %>%
+        self$af$binge_scaled_waf = full_join(binge_gammas, self$rr$binge, by = 'gender') %>%
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
@@ -539,26 +541,172 @@ mahp <- R6Class(
           ) %>%
           mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
           mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          ## Scaling factor is used post-hoc for drinking groups and scenarios.
+          ## For current drinkers and entire population we just get values of 1
           mutate(scaling_factor_1.0000 = denominator_1.0000 / current_comp_1.0000) %>%
-          mutate(integrand_1.0000 = map2(integrand_1.0000, scaling_factor_1.0000, `*`)) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
           mutate(current_drinker_af_1.0000 = 1) %>%
-          mutate(entire_population_af_1.0000 = 1)
+          mutate(entire_population_af_1.0000 = 1) %>%
+          select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
       ## init calibrated fractions
       if(!is.null(self$rr$calibrated)) {
-
+        ## I dunno maybe set up some 1.00 base afs and postpone risk function
+        ## calibration until asked for scenarios/drinking groups?
       }
+
+      invisible(self)
     },
 
     ## Adds new scenario attributable fractions and relative attributable
     ## fractions to the partially attributable fraction dataset
+    ##   .numeric is a multiplicative constant for relative scenario consumption
+    ##     We truncate the value to 4 digits beyond the .
     add_scenario = function(.numeric) {
-      ## Implement scenarios by constructing new integrand vectors, constructing
-      ## the scenario's integrand, current drinker component, and denominator,
-      ## then evaluating afs for drinking groups
-      self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
+      .value = round(.numeric, digits = 4)
+      .suffix = sprintf("%01.4f",.value)
+      integrand = paste0('integrand_', .suffix)
+      current_comp = paste0('current_comp_', .suffix)
+      denominator = paste0('denominator_', .suffix)
+      current_drinker_af = paste0('current_drinker_af_', .suffix)
+      entire_population_af = paste0('entire_population_af_', .suffix)
+      former_drinker_af = paste0('former_drinker_af_', .suffix)
+      scaling_factor = paste0('scaling_factor_', .suffix)
+
+      ## init scenario gammas and binge gammas
+      base_gamma = self$make_gamma(.value, F)
+      binge_gammas = self$make_gamma(.value, T)
+
+      ## Naming conventions for fractions:
+      ##  *_#
+      ##  *: the measure type
+      ##  #: the consumption level, multiplicative, 4 digits granularity
+
+      ## Add base scenario fractions
+      if(!is.null(self$af$base_paf)) {
+        self$af$base_paf = left_join(
+          self$af$base_paf, base_gamma,
+          by = c("region", "year", "gender", "age_group")) %>%
+          mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
+          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          select(-p_fd, -base_gamma)
+        #TODO::  Add relative correction factor
+      }
+
+      ## Add base former scenario fractions
+      if(!is.null(self$af$base_former_paf)) {
+        self$af$base_former_paf = left_join(
+          self$af$base_former_paf, base_gamma,
+          by = c("region", "year", "gender", "age_group")) %>%
+          mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
+          mutate((!! former_drinker_af) := former_comp / eval(sym(denominator))) %>%
+          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          select(-p_fd, -base_gamma)
+        #TODO::  Add relative correction factor
+      }
+
+      ## Add binge scenario fractions
+      if(!is.null(self$af$binge_paf)) {
+        self$af$binge_paf = left_join(
+          self$af$binge_paf, binge_gammas,
+          by = c("region", "year", "gender", "age_group")) %>%
+          mutate(
+            (!! integrand) := pmap(
+              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+              function(.w, .x, .y, .z) {
+                (.w * .y) + (.x * .z)
+              }
+            )
+          ) %>%
+          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
+          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          select(-p_fd, -nonbinge_gamma, -binge_gamma)
+
+        #TODO::  Add relative correction factor
+      }
+
+      ## Add binge former scenario fractions
+      if(!is.null(self$af$binge_former_paf)) {
+        self$af$binge_former_paf = left_join(
+          self$af$binge_former_paf, binge_gammas,
+          by = c("region", "year", "gender", "age_group")) %>%
+          mutate(
+            (!! integrand) := pmap(
+              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+              function(.w, .x, .y, .z) {
+                (.w * .y) + (.x * .z)
+              }
+            )
+          ) %>%
+          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
+          mutate((!! former_drinker_af) := former_comp / eval(sym(denominator))) %>%
+          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          select(-p_fd, -nonbinge_gamma, -binge_gamma)
+        #TODO::  Add relative correction factor
+      }
+
+      ## init base scaled fractions
+      if(!is.null(self$af$base_scaled_waf)) {
+        self$af$base_scaled_waf = left_join(
+          self$af$base_scaled_waf, base_gamma,
+          by = c("region", "year", "gender", "age_group")) %>%
+          mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          ## Scaling factor is used post-hoc for drinking groups and scenarios.
+          ## For current drinkers and entire population we just get values of 1
+          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(current_comp))) %>%
+          mutate((!! current_drinker_af) := 1) %>%
+          mutate((!! entire_population_af) := 1) %>%
+          select(-p_fd, -base_gamma)
+        #TODO::  Add relative correction factor
+      }
+
+      ## init binge scaled fractions
+      if(!is.null(self$af$binge_scaled_waf)) {
+        self$af$binge_scaled_waf = left_join(
+          self$af$binge_scaled_waf, binge_gammas,
+          by = c("region", "year", "gender", "age_group")) %>%
+          mutate(
+            (!! integrand) := pmap(
+              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+              function(.w, .x, .y, .z) {
+                (.w * .y) + (.x * .z)
+              }
+            )
+          ) %>%
+          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          ## Scaling factor is used post-hoc for drinking groups and scenarios.
+          ## For current drinkers and entire population we just get values of 1
+          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(current_comp))) %>%
+          mutate((!! current_drinker_af) := 1) %>%
+          mutate((!! entire_population_af) := 1) %>%
+          select(-p_fd, -nonbinge_gamma, -binge_gamma)
+        #TODO::  Add relative correction factor
+
+      }
+      # ## init calibrated fractions
+      # if(!is.null(self$rr$calibrated)) {
+      #   ## I dunno maybe set up some 1.00 base afs and postpone risk function
+      #   ## calibration until asked for scenarios/drinking groups?
+      # }
+      #
+      #
+      #
+      # ## Implement scenarios by constructing new integrand vectors, constructing
+      # ## the scenario's integrand, current drinker component, and denominator,
+      # ## then evaluating afs for drinking groups
+      # self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
       invisible(self)
     },
 
