@@ -106,7 +106,7 @@ screen_gender = function(.char) {
   if(!setequal(c('w', 'm'), supplied_g)) {
     return(
       list(
-        msg = "Due to the availability of dose-response relative risk functions, InterMAHP requires the gender variable to take only 2 values: w or m.\n",
+        msg = "Due to the availability of dose-response relative risk functions, InterMAHP requires the gender variable to take only 2 values: w and m.\n",
         stop_flag = TRUE
       )
     )

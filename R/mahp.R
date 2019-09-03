@@ -240,8 +240,8 @@ mahp <- R6Class(
 
         ## Categorize risk functions by methodology.
         ## Note that IHME fits entirely into the $base category, while CSUCH and
-        ## related require all categories.  Calibrated category should be able
-        ## to be used by all.
+        ## related require all categories.  Wholly attributable categories
+        ## should be able to be used by all.
         self$rr = list(
             base = temp_rr %>%
                 filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
@@ -446,8 +446,9 @@ mahp <- R6Class(
       binge_gammas = self$make_gamma(1, T)
 
       ## Naming conventions for fractions:
-      ##  *_#
-      ##  *: the measure type
+      ##  1_2_#
+      ##  1: the measure type
+      ##  2: the measure group
       ##  #: the consumption level, multiplicative, 4 digits granularity
 
       ## init base fractions
@@ -457,10 +458,10 @@ mahp <- R6Class(
       if(!is.null(self$rr$base)) {
         self$af$base_paf = full_join(base_gamma, self$rr$base, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
-          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000) %>%
+          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
+          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
+          mutate(af_entire_1.0000 = af_current_1.0000) %>%
           select(-p_fd, -base_gamma)
       }
 
@@ -468,12 +469,12 @@ mahp <- R6Class(
       if(!is.null(self$rr$base_former)) {
         self$af$base_former_paf = full_join(base_gamma, self$rr$base_former, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(former_comp = r_fd * p_fd) %>%
-          mutate(denominator_1.0000 = 1 + former_comp + current_comp_1.0000) %>%
-          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
-          mutate(former_drinker_af_1.0000 = former_comp / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000) %>%
+          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(comp_former = r_fd * p_fd) %>%
+          mutate(denominator_1.0000 = 1 + comp_former + comp_current_1.0000) %>%
+          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
+          mutate(af_former_1.0000 = comp_former / denominator_1.0000) %>%
+          mutate(af_entire_1.0000 = af_former_1.0000 + af_current_1.0000) %>%
           select(-p_fd, -base_gamma)
       }
 
@@ -483,15 +484,13 @@ mahp <- R6Class(
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {
-                (.w * .y) + (.x * .z)
-              }
+              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
             )
           ) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
-          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = current_drinker_af_1.0000) %>%
+          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
+          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
+          mutate(af_entire_1.0000 = af_current_1.0000) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
 
@@ -501,30 +500,28 @@ mahp <- R6Class(
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {
-                (.w * .y) + (.x * .z)
-              }
+              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
             )
           ) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(former_comp = r_fd * p_fd) %>%
-          mutate(denominator_1.0000 = 1 + former_comp + current_comp_1.0000) %>%
-          mutate(current_drinker_af_1.0000 = current_comp_1.0000 / denominator_1.0000) %>%
-          mutate(former_drinker_af_1.0000 = former_comp / denominator_1.0000) %>%
-          mutate(entire_population_af_1.0000 = former_drinker_af_1.0000 + current_drinker_af_1.0000) %>%
+          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(comp_former = r_fd * p_fd) %>%
+          mutate(denominator_1.0000 = 1 + comp_former + comp_current_1.0000) %>%
+          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
+          mutate(af_former_1.0000 = comp_former / denominator_1.0000) %>%
+          mutate(af_entire_1.0000 = af_former_1.0000 + af_current_1.0000) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
       ## init base scaled fractions
       if(!is.null(self$rr$base_scaled)) {
         self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
           ## Scaling factor is used post-hoc for drinking groups and scenarios.
           ## For current drinkers and entire population we just get values of 1
-          mutate(scaling_factor_1.0000 = denominator_1.0000 / current_comp_1.0000) %>%
-          mutate(current_drinker_af_1.0000 = 1) %>%
-          mutate(entire_population_af_1.0000 = 1) %>%
+          mutate(scaling_factor_1.0000 = denominator_1.0000 / comp_current_1.0000) %>%
+          mutate(af_current_1.0000 = 1) %>%
+          mutate(af_entire_1.0000 = 1) %>%
           select(-p_fd, -base_gamma)
       }
 
@@ -534,18 +531,16 @@ mahp <- R6Class(
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {
-                (.w * .y) + (.x * .z)
-              }
+              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
             )
           ) %>%
-          mutate(current_comp_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + current_comp_1.0000) %>%
+          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
           ## Scaling factor is used post-hoc for drinking groups and scenarios.
           ## For current drinkers and entire population we just get values of 1
-          mutate(scaling_factor_1.0000 = denominator_1.0000 / current_comp_1.0000) %>%
-          mutate(current_drinker_af_1.0000 = 1) %>%
-          mutate(entire_population_af_1.0000 = 1) %>%
+          mutate(scaling_factor_1.0000 = denominator_1.0000 / comp_current_1.0000) %>%
+          mutate(af_current_1.0000 = 1) %>%
+          mutate(af_entire_1.0000 = 1) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
       ## init calibrated fractions
@@ -565,11 +560,11 @@ mahp <- R6Class(
       .value = round(.numeric, digits = 4)
       .suffix = sprintf("%01.4f",.value)
       integrand = paste0('integrand_', .suffix)
-      current_comp = paste0('current_comp_', .suffix)
+      comp_current = paste0('comp_current_', .suffix)
       denominator = paste0('denominator_', .suffix)
-      current_drinker_af = paste0('current_drinker_af_', .suffix)
-      entire_population_af = paste0('entire_population_af_', .suffix)
-      former_drinker_af = paste0('former_drinker_af_', .suffix)
+      af_current = paste0('af_current_', .suffix)
+      af_entire = paste0('af_entire_', .suffix)
+      af_former = paste0('af_former_', .suffix)
       scaling_factor = paste0('scaling_factor_', .suffix)
 
       ## init scenario gammas and binge gammas
@@ -587,12 +582,29 @@ mahp <- R6Class(
           self$af$base_paf, base_gamma,
           by = c("region", "year", "gender", "age_group")) %>%
           mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
-          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
-          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! af_entire) := eval(sym(af_current))) %>%
           select(-p_fd, -base_gamma)
+
+        if(!is.null(self$dg)) {
+          for(.name in names(self$dg)) {
+            af_group = paste0('af_', .name, '_', .suffix)
+            self$base_paf = self$base_paf %>%
+              mutate(
+                (!! af_group) := pmap(
+                  list(.g = gender, .v = eval(sym(comp_current)), .d = eval(sym(denominator))),
+                  function(.g, .v, .d) {
+                    1
+                    # sum(.v[ceiling(self$dg[[name]][[.g]][[1]]):ceiling(self$dg[[name]][[.g]][[2]])])/.d
+                  }
+                )
+              )
+          }
+        }
         #TODO::  Add relative correction factor
+        #TODO::  Evaluate over variable groups
       }
 
       ## Add base former scenario fractions
@@ -601,13 +613,14 @@ mahp <- R6Class(
           self$af$base_former_paf, base_gamma,
           by = c("region", "year", "gender", "age_group")) %>%
           mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
-          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
-          mutate((!! former_drinker_af) := former_comp / eval(sym(denominator))) %>%
-          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! af_former) := comp_former / eval(sym(denominator))) %>%
+          mutate((!! af_entire) := eval(sym(af_current))) %>%
           select(-p_fd, -base_gamma)
         #TODO::  Add relative correction factor
+        #TODO::  Evaluate over variable groups
       }
 
       ## Add binge scenario fractions
@@ -623,13 +636,14 @@ mahp <- R6Class(
               }
             )
           ) %>%
-          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
-          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
-          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! af_entire) := eval(sym(af_current))) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
 
         #TODO::  Add relative correction factor
+        #TODO::  Evaluate over variable groups
       }
 
       ## Add binge former scenario fractions
@@ -640,18 +654,17 @@ mahp <- R6Class(
           mutate(
             (!! integrand) := pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {
-                (.w * .y) + (.x * .z)
-              }
+              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
             )
           ) %>%
-          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
-          mutate((!! current_drinker_af) := eval(sym(current_comp)) / eval(sym(denominator))) %>%
-          mutate((!! former_drinker_af) := former_comp / eval(sym(denominator))) %>%
-          mutate((!! entire_population_af) := eval(sym(current_drinker_af))) %>%
+          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! af_former) := comp_former / eval(sym(denominator))) %>%
+          mutate((!! af_entire) := eval(sym(af_current))) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
         #TODO::  Add relative correction factor
+        #TODO::  Evaluate over variable groups
       }
 
       ## init base scaled fractions
@@ -660,15 +673,16 @@ mahp <- R6Class(
           self$af$base_scaled_waf, base_gamma,
           by = c("region", "year", "gender", "age_group")) %>%
           mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
           ## Scaling factor is used post-hoc for drinking groups and scenarios.
           ## For current drinkers and entire population we just get values of 1
-          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(current_comp))) %>%
-          mutate((!! current_drinker_af) := 1) %>%
-          mutate((!! entire_population_af) := 1) %>%
+          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
+          mutate((!! af_current) := 1) %>%
+          mutate((!! af_entire) := 1) %>%
           select(-p_fd, -base_gamma)
         #TODO::  Add relative correction factor
+        #TODO::  Evaluate over variable groups
       }
 
       ## init binge scaled fractions
@@ -679,20 +693,19 @@ mahp <- R6Class(
           mutate(
             (!! integrand) := pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {
-                (.w * .y) + (.x * .z)
-              }
+              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
             )
           ) %>%
-          mutate((!! current_comp) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(current_comp))) %>%
+          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
           ## Scaling factor is used post-hoc for drinking groups and scenarios.
           ## For current drinkers and entire population we just get values of 1
-          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(current_comp))) %>%
-          mutate((!! current_drinker_af) := 1) %>%
-          mutate((!! entire_population_af) := 1) %>%
+          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
+          mutate((!! af_current) := 1) %>%
+          mutate((!! af_entire) := 1) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
         #TODO::  Add relative correction factor
+        #TODO::  Evaluate over variable groups
 
       }
       # ## init calibrated fractions
@@ -712,10 +725,16 @@ mahp <- R6Class(
 
     ## Adds a new set of drinking groups for each existing scenario
     ##
-    add_group = function(.name, .list) {
+    add_group = function(.name, .group) {
+
+      ## TODO:: Screen name and group defn input, turn name into something
+      ## suitable for tibble var name
+
+      self$dg[[.name]] = .group
+
       ## Implement groups by adding a name to the list, then evaluating the new
       ## group for each scenario
-      self$paf = mutate(self$paf, (!! .name) := 0)
+      # self$paf = mutate(self$paf, (!! .name) := 0)
       invisible(self)
     }
 

@@ -129,5 +129,6 @@ ggplot(v5summary, aes(x = im)) +
   thing$set_ub(150.5)
   # thing$update_pc()
   thing$init_fractions()
+  thing$add_group('middle', list(w = c(20, 30), m = c(25, 40)))
   thing$add_scenario(0.95)
 }
