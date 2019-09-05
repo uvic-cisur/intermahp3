@@ -636,20 +636,18 @@ mahp <- R6Class(
 
         if(!is.null(self$dg)) {
           for(.name in names(self$dg)) {
-            af_group = paste0('af_', .name, '_', .suffix)
-            self$base_paf = self$base_paf %>%
-              mutate(
-                (!! af_group) := pmap(
-                  list(.g = gender, .v = eval(sym(comp_current)), .d = eval(sym(denominator))),
-                  function(.g, .v, .d) {
-                    1
-                    # sum(.v[ceiling(self$dg[[name]][[.g]][[1]]):ceiling(self$dg[[name]][[.g]][[2]])])/.d
-                  }
-                )
+            af_group = paste0('saf_', .name, '_', .suffix)
+            self$af$base_paf = mutate(
+              self$af$base_paf,
+              (!! af_group) := pmap(
+                list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
+                function(.g, .v, .d) {
+                  sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
+                }
               )
+            )
           }
         }
-        #TODO::  Evaluate over variable groups
       }
 
       ## Add base former scenario fractions
