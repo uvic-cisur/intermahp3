@@ -163,8 +163,10 @@ mahp <- R6Class(
 
     ## Set risk extrapolation method (linear >> TRUE, capped >> FALSE)
     set_ext = function(.char) {
-      ## Different extrapolation types not yet implemented yet.  Will be enacted
-      ## in the update_rr function
+      self$ext = .char
+
+      self$update_rr()
+
       invisible(self)
     },
 
@@ -222,6 +224,30 @@ mahp <- R6Class(
             filter(temp_rr, im != '_22'),
             rr_22
           )
+        } else {
+          temp_rr
+        }
+
+        ## Cap risk values if needed
+        ## NOTE:: Order is important here, we implement capping of risk values
+        ## AFTER applying SCC adjustment and BEFORE subsetting
+        temp_rr = if(!is.null(self$ext) & !is.null(self$ub))
+        {
+          if(self$ext == 'capped' & self$ub > 150) {
+            mutate(
+              temp_rr,
+              risk = map(
+                risk,
+                ~c(.x[1:150], rep(.x[150], ceiling(self$ub) - 150))
+              ),
+              binge_risk = map(
+                binge_risk,
+                ~c(.x[1:150], rep(.x[150], ceiling(self$ub) - 150))
+              )
+            )
+          } else {
+            temp_rr
+          }
         } else {
           temp_rr
         }
@@ -557,14 +583,31 @@ mahp <- R6Class(
     ##   .numeric is a multiplicative constant for relative scenario consumption
     ##     We truncate the value to 4 digits beyond the .
     add_scenario = function(.numeric) {
+      # The change in consumption used to construct gammas
       .value = round(.numeric, digits = 4)
+      # Change in consumption as a suffix for variable names
       .suffix = sprintf("%01.4f",.value)
+      # Scenario integrand (summation values under this methodology)
       integrand = paste0('integrand_', .suffix)
+      # AF component for current drinkers.  Sum of integrand
       comp_current = paste0('comp_current_', .suffix)
+      # Denominator in AF computations, equal to 1 + FD component + CD component
       denominator = paste0('denominator_', .suffix)
-      af_current = paste0('af_current_', .suffix)
+      # 'True' AF before adjustments.  Made practical by hitting it with the
+      # count adjustment
       af_entire = paste0('af_entire_', .suffix)
-      af_former = paste0('af_former_', .suffix)
+      # Count adjustment. Converts 'true' AF into something that can be used by
+      # assuming the number of non-attributable harms are held constant between
+      # scenarios
+      adj_scenario = paste0('adj_scenario_', .suffix)
+      # Scenario attributable fraction for current drinkers
+      saf_current = paste0('saf_current_', .suffix)
+      # Scenario attributable fraction for the entire population
+      saf_entire = paste0('saf_entire_', .suffix)
+      # Scenario attributable fraction for former drinkers
+      saf_former = paste0('saf_former_', .suffix)
+      # Scaling factor is used to normalize fractions for wholly attributable
+      # conditions
       scaling_factor = paste0('scaling_factor_', .suffix)
 
       ## init scenario gammas and binge gammas
@@ -573,7 +616,8 @@ mahp <- R6Class(
 
       ## Naming conventions for fractions:
       ##  *_#
-      ##  *: the measure type
+      ##  *: the measure type (saf = scenario attributable fraction = fraction
+      ##  with count adjustment applied)
       ##  #: the consumption level, multiplicative, 4 digits granularity
 
       ## Add base scenario fractions
@@ -584,8 +628,10 @@ mahp <- R6Class(
           mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
           mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
           mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! af_entire) := eval(sym(af_current))) %>%
+          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
           select(-p_fd, -base_gamma)
 
         if(!is.null(self$dg)) {
@@ -603,7 +649,6 @@ mahp <- R6Class(
               )
           }
         }
-        #TODO::  Add relative correction factor
         #TODO::  Evaluate over variable groups
       }
 
@@ -615,11 +660,12 @@ mahp <- R6Class(
           mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
           mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
           mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! af_former) := comp_former / eval(sym(denominator))) %>%
-          mutate((!! af_entire) := eval(sym(af_current))) %>%
+          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
+          mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator))) %>%
           select(-p_fd, -base_gamma)
-        #TODO::  Add relative correction factor
         #TODO::  Evaluate over variable groups
       }
 
@@ -638,11 +684,12 @@ mahp <- R6Class(
           ) %>%
           mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
           mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! af_entire) := eval(sym(af_current))) %>%
+          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
 
-        #TODO::  Add relative correction factor
         #TODO::  Evaluate over variable groups
       }
 
@@ -659,11 +706,12 @@ mahp <- R6Class(
           ) %>%
           mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
           mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_current) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! af_former) := comp_former / eval(sym(denominator))) %>%
-          mutate((!! af_entire) := eval(sym(af_current))) %>%
+          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
+          mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator))) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
-        #TODO::  Add relative correction factor
         #TODO::  Evaluate over variable groups
       }
 
@@ -678,10 +726,9 @@ mahp <- R6Class(
           ## Scaling factor is used post-hoc for drinking groups and scenarios.
           ## For current drinkers and entire population we just get values of 1
           mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
-          mutate((!! af_current) := 1) %>%
-          mutate((!! af_entire) := 1) %>%
+          mutate((!! saf_current) := scaling_factor_1.0000 / eval(sym(scaling_factor))) %>%
+          mutate((!! saf_entire) := eval(sym(saf_current))) %>%
           select(-p_fd, -base_gamma)
-        #TODO::  Add relative correction factor
         #TODO::  Evaluate over variable groups
       }
 
@@ -701,10 +748,9 @@ mahp <- R6Class(
           ## Scaling factor is used post-hoc for drinking groups and scenarios.
           ## For current drinkers and entire population we just get values of 1
           mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
-          mutate((!! af_current) := 1) %>%
-          mutate((!! af_entire) := 1) %>%
+          mutate((!! saf_current) := scaling_factor_1.0000 / eval(sym(scaling_factor))) %>%
+          mutate((!! saf_entire) := eval(sym(saf_current))) %>%
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
-        #TODO::  Add relative correction factor
         #TODO::  Evaluate over variable groups
 
       }
