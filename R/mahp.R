@@ -269,28 +269,28 @@ mahp <- R6Class(
         ## related require all categories.  Wholly attributable categories
         ## should be able to be used by all.
         self$rr = list(
-            base = temp_rr %>%
-                filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
-                select(im, gender, outcome, risk),
-            base_former = temp_rr %>%
-                filter(bingea == 0 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
-                select(im, gender, outcome, r_fd, risk),
-            binge = temp_rr %>%
-                filter(bingea == 1 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
-                select(im, gender, outcome, risk, binge_risk),
-            binge_former = temp_rr %>%
-                filter(bingea == 1 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
-                select(im, gender, outcome, r_fd, risk, binge_risk),
-            base_scaled = temp_rr %>%
-                filter(bingea == 0 & wholly_attr & !is.na(risk)) %>%
-                select(im, gender, outcome, risk),
-            binge_scaled = temp_rr %>%
-                filter(bingea == 1 & wholly_attr & !is.na(risk)) %>%
-                select(im, gender, outcome, risk, binge_risk),
-            calibrated = temp_rr %>%
-              filter(is.na(risk)) %>%
-              select(im, gender, outcome),
-            im = temp_rr$im %>% unique() %>% sort()
+          base = temp_rr %>%
+            filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
+            select(im, gender, outcome, risk),
+          base_former = temp_rr %>%
+            filter(bingea == 0 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
+            select(im, gender, outcome, r_fd, risk),
+          binge = temp_rr %>%
+            filter(bingea == 1 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
+            select(im, gender, outcome, risk, binge_risk),
+          binge_former = temp_rr %>%
+            filter(bingea == 1 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
+            select(im, gender, outcome, r_fd, risk, binge_risk),
+          base_scaled = temp_rr %>%
+            filter(bingea == 0 & wholly_attr & !is.na(risk)) %>%
+            select(im, gender, outcome, risk),
+          binge_scaled = temp_rr %>%
+            filter(bingea == 1 & wholly_attr & !is.na(risk)) %>%
+            select(im, gender, outcome, risk, binge_risk),
+          calibrated = temp_rr %>%
+            filter(is.na(risk)) %>%
+            select(im, gender, outcome),
+          im = temp_rr$im %>% unique() %>% sort()
         )
       }
     },
@@ -477,66 +477,60 @@ mahp <- R6Class(
       ##  2: the measure group
       ##  #: the consumption level, multiplicative, 4 digits granularity
 
-      ## init base fractions
-      ## These are the simplest type and occur most frequently in our risk
-      ## sources.  All of the IHME risk sources live here. Risk for former
-      ## drinkers and bingers are unchanged.
-      if(!is.null(self$rr$base)) {
-        self$af$base_paf = full_join(base_gamma, self$rr$base, by = 'gender') %>%
-          mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
-          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
-          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
-          mutate(af_entire_1.0000 = af_current_1.0000) %>%
-          select(-p_fd, -base_gamma)
+      for(.type in c('base', 'base_former', 'binge', 'binge_former')) {
+        .paf = paste0(.type, '_paf')
+        if(!is.null(self$rr[[.type]])) {
+          if(grepl('base', .type)) {
+            self$af[[.paf]] = full_join(self$rr[[.type]], base_gamma, by = c("gender")) %>%
+              mutate(integrand_1.0000 := map2(risk, base_gamma, `*`)) %>%
+              select(-base_gamma)
+          } else {
+            self$af[[.paf]] = full_join(binge_gammas, self$rr[[.type]], by = 'gender') %>%
+              mutate(
+                integrand_1.0000 = pmap(
+                  list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+                  function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
+                )
+              ) %>%
+              select(-nonbinge_gamma, -binge_gamma)
+          }
+
+          self$af[[.paf]] = mutate(self$af[[.paf]], comp_current_1.0000 = map_dbl(integrand_1.0000, sum))
+
+          if(grepl('former', .type)) {
+            self$af[[.paf]] = self$af[[.paf]] %>%
+              mutate(comp_former = r_fd * p_fd) %>%
+              mutate(denominator_1.0000 = 1 + comp_former + comp_current_1.0000) %>%
+              mutate(af_former_1.0000 = comp_former / denominator_1.0000) %>%
+              mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000)  %>%
+              mutate(af_entire_1.0000 = af_former_1.0000 + af_current_1.0000)
+          } else {
+            self$af[[.paf]] = self$af[[.paf]] %>%
+              mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
+              mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
+              mutate(af_entire_1.0000 = af_current_1.0000)
+          }
+
+          self$af[[.paf]] = self$af[[.paf]] %>% select(-p_fd)
+
+          if(!is.null(self$dg)) {
+            for(.name in names(self$dg)) {
+              af_group = paste('af', .name, '1.0000', sep = '_')
+              self$af[[.paf]] = mutate(
+                self$af[[.paf]],
+                (!! af_group) := pmap(
+                  list(.g = gender, .v = integrand_1.0000, .d = denominator_1.0000),
+                  function(.g, .v, .d) {
+                    sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
+                  }
+                )
+              )
+            }
+          }
+        }
       }
 
-      ## init base former fractions
-      if(!is.null(self$rr$base_former)) {
-        self$af$base_former_paf = full_join(base_gamma, self$rr$base_former, by = 'gender') %>%
-          mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
-          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(comp_former = r_fd * p_fd) %>%
-          mutate(denominator_1.0000 = 1 + comp_former + comp_current_1.0000) %>%
-          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
-          mutate(af_former_1.0000 = comp_former / denominator_1.0000) %>%
-          mutate(af_entire_1.0000 = af_former_1.0000 + af_current_1.0000) %>%
-          select(-p_fd, -base_gamma)
-      }
 
-      ## init binge fractions
-      if(!is.null(self$rr$binge)) {
-        self$af$binge_paf = full_join(binge_gammas, self$rr$binge, by = 'gender') %>%
-          mutate(
-            integrand_1.0000 = pmap(
-              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
-            )
-          ) %>%
-          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
-          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
-          mutate(af_entire_1.0000 = af_current_1.0000) %>%
-          select(-p_fd, -nonbinge_gamma, -binge_gamma)
-      }
-
-      ## init binge former fractions
-      if(!is.null(self$rr$binge_former)) {
-        self$af$binge_former_paf = full_join(binge_gammas, self$rr$binge_former, by = 'gender') %>%
-          mutate(
-            integrand_1.0000 = pmap(
-              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
-            )
-          ) %>%
-          mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
-          mutate(comp_former = r_fd * p_fd) %>%
-          mutate(denominator_1.0000 = 1 + comp_former + comp_current_1.0000) %>%
-          mutate(af_current_1.0000 = comp_current_1.0000 / denominator_1.0000) %>%
-          mutate(af_former_1.0000 = comp_former / denominator_1.0000) %>%
-          mutate(af_entire_1.0000 = af_former_1.0000 + af_current_1.0000) %>%
-          select(-p_fd, -nonbinge_gamma, -binge_gamma)
-      }
       ## init base scaled fractions
       if(!is.null(self$rr$base_scaled)) {
         self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
@@ -620,97 +614,58 @@ mahp <- R6Class(
       ##  with count adjustment applied)
       ##  #: the consumption level, multiplicative, 4 digits granularity
 
-      ## Add base scenario fractions
-      if(!is.null(self$af$base_paf)) {
-        self$af$base_paf = left_join(
-          self$af$base_paf, base_gamma,
-          by = c("region", "year", "gender", "age_group")) %>%
-          mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
-          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
-          select(-p_fd, -base_gamma)
+      for(.paf in c('base_paf', 'base_former_paf', 'binge_paf', 'binge_former_paf')) {
+        if(!is.null(self$af[[.paf]])) {
+          if(grepl('base', .paf)) {
+            self$af[[.paf]] = left_join(
+              self$af[[.paf]], base_gamma,
+              by = c("region", "year", "gender", "age_group")) %>%
+              mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+              select(-p_fd, -base_gamma)
+          } else {
+            self$af[[.paf]] = left_join(
+              self$af[[.paf]], binge_gammas,
+              by = c("region", "year", "gender", "age_group")) %>%
+              mutate(
+                (!! integrand) := pmap(
+                  list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+                  function(.w, .x, .y, .z) {
+                    (.w * .y) + (.x * .z)
+                  }
+                )
+              ) %>%
+              select(-p_fd, -nonbinge_gamma, -binge_gamma)
+          }
 
-        if(!is.null(self$dg)) {
-          for(.name in names(self$dg)) {
-            af_group = paste0('saf_', .name, '_', .suffix)
-            self$af$base_paf = mutate(
-              self$af$base_paf,
-              (!! af_group) := pmap(
-                list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
-                function(.g, .v, .d) {
-                  sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
-                }
+          self$af[[.paf]] = self$af[[.paf]] %>%
+            mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+            mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+            mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+            mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+            mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+            mutate((!! saf_current) := eval(sym(saf_entire)))
+
+
+          if(grepl('former', .paf)) {
+            self$af[[.paf]] = self$af[[.paf]] %>%
+              mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator)))
+          }
+
+          if(!is.null(self$dg)) {
+            for(.name in names(self$dg)) {
+              af_group = paste('saf', .name, .suffix, sep = '_')
+              self$af[[.paf]] = mutate(
+                self$af[[.paf]],
+                (!! af_group) := pmap(
+                  list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
+                  function(.g, .v, .d) {
+                    sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
+                  }
+                )
               )
-            )
+            }
           }
         }
-      }
-
-      ## Add base former scenario fractions
-      if(!is.null(self$af$base_former_paf)) {
-        self$af$base_former_paf = left_join(
-          self$af$base_former_paf, base_gamma,
-          by = c("region", "year", "gender", "age_group")) %>%
-          mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
-          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
-          mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator))) %>%
-          select(-p_fd, -base_gamma)
-        #TODO::  Evaluate over variable groups
-      }
-
-      ## Add binge scenario fractions
-      if(!is.null(self$af$binge_paf)) {
-        self$af$binge_paf = left_join(
-          self$af$binge_paf, binge_gammas,
-          by = c("region", "year", "gender", "age_group")) %>%
-          mutate(
-            (!! integrand) := pmap(
-              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {
-                (.w * .y) + (.x * .z)
-              }
-            )
-          ) %>%
-          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
-          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
-          select(-p_fd, -nonbinge_gamma, -binge_gamma)
-
-        #TODO::  Evaluate over variable groups
-      }
-
-      ## Add binge former scenario fractions
-      if(!is.null(self$af$binge_former_paf)) {
-        self$af$binge_former_paf = left_join(
-          self$af$binge_former_paf, binge_gammas,
-          by = c("region", "year", "gender", "age_group")) %>%
-          mutate(
-            (!! integrand) := pmap(
-              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
-            )
-          ) %>%
-          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-          mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
-          mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-          mutate((!! saf_current) := eval(sym(saf_entire))) %>%
-          mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator))) %>%
-          select(-p_fd, -nonbinge_gamma, -binge_gamma)
-        #TODO::  Evaluate over variable groups
       }
 
       ## init base scaled fractions
