@@ -1,10 +1,10 @@
-## code to prepare `ihme_rr` dataset goes here
+## code to prepare `ihme_low` dataset goes here
 
 library(tidyverse)
 
 ihme_rr0 = read_csv(file.path('data-full', 'ihme_rr.csv')) %>%
-  select(-lower_rr, -upper_rr) %>% ## TEMPORARY, NOT CERTAIN OF UE METHODS YET
-  spread(exposure_grams_per_day, mean_rr) %>%
+  select(-mean_rr, -upper_rr) %>% ## TEMPORARY, NOT CERTAIN OF UE METHODS YET
+  spread(exposure_grams_per_day, lower_rr) %>%
   rename(gender = sex) %>%
   mutate(gender = ifelse(gender == 'Male', 'm', 'w')) %>%
   crossing(tibble(outcome = c('Morbidity', 'Mortality'))) %>%
@@ -28,20 +28,8 @@ ihme_rr2 = ihme_rr2 %>%
 
 ihme_causes = read_csv(file.path('data-full', 'ihme_conditions.csv'))
 
-ihme_rr = left_join(ihme_rr2, ihme_causes, by = c('cause_name' = 'condition')) %>%
+ihme_low_rr = left_join(ihme_rr2, ihme_causes, by = c('cause_name' = 'condition')) %>%
   select(im, gender, outcome, risk) %>%
   mutate(bingea = 0, wholly_attr = FALSE, r_fd = 0, binge_risk = NA)
-#
-# ihme_rr = list(
-#   base = ihme_rr_base,
-#   # base_former = NULL,
-#   # binge = NULL,
-#   # binge_former = NULL,
-#   # base_scaled = NULL,
-#   # binge_scaled = NULL,
-#   # calibrated = NULL,
-#   im = ihme_rr_base$im %>% unique() %>% sort()
-# )
 
-usethis::use_data(ihme_rr, overwrite = TRUE)
-
+usethis::use_data(ihme_low_rr, overwrite = T)
