@@ -2,17 +2,20 @@
 
 library(tidyverse)
 
-ihme_rr0 = read_csv(file.path('data-full', 'ihme_rr.csv')) %>%
+ihme_rr_in = read_csv(file.path('data-full', 'ihme_rr.csv')) %>% rename(gender = sex)
+ihme_rr_both = ihme_rr_in %>% filter(gender == "Both") %>% select(-gender) %>% crossing(tibble(gender = c('Male', 'Female')))
+ihme_rr_specific = ihme_rr_in %>% filter(gender != "Both")
+
+ihme_rr0 = bind_rows(ihme_rr_both, ihme_rr_specific) %>%
   select(-mean_rr, -lower_rr) %>% ## TEMPORARY, NOT CERTAIN OF UE METHODS YET
   spread(exposure_grams_per_day, upper_rr) %>%
-  rename(gender = sex) %>%
   mutate(gender = ifelse(gender == 'Male', 'm', 'w')) %>%
   crossing(tibble(outcome = c('Morbidity', 'Mortality'))) %>%
   select(-`0`)
 
 crushed = ihme_rr0[, 3:152] %>%
   as.matrix() %>%
-  split(1:54)
+  split(1:92)
 
 ihme_rr1 = ihme_rr0[, -(3:152)]
 ihme_rr1$light_risk = crushed

@@ -94,3 +94,9 @@ API for InterMAHP Shiny App
  scenario
 }
 
+\section{Results Methods}{
+
+\code{$get_afs} Provides all attributable fractions computed and evaluates scc
+ correction if supplied
+}
+

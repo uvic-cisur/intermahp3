@@ -85,6 +85,10 @@
 #'\code{$add_group()} Adds a new set of drinking groups for each existing
 #'  scenario
 #'
+#'@section Results Methods:
+#'\code{$get_afs} Provides all attributable fractions computed and evaluates scc
+#'  correction if supplied
+#'
 #'@importFrom R6 R6Class
 #'@name mahp
 NULL
@@ -215,18 +219,18 @@ mahp <- R6Class(
 
         ## If we've set scc proportions and 22 is part of the risk set being
         ## considered, we apply the proportions directly to the risks.
-        temp_rr = if(!is.null(self$scc) && '_22' %in% self$rr$im) {
-          rr_22 = temp_rr %>%
-            filter(im == '_22') %>%
-            ## Note, oesophageal cancer is not binge-affected in any risk source
-            mutate(risk = map2(risk, gender, ~ .x * self$scc[[.y]]))
-          bind_rows(
-            filter(temp_rr, im != '_22'),
-            rr_22
-          )
-        } else {
-          temp_rr
-        }
+        # temp_rr = if(!is.null(self$scc) && '_22' %in% self$rr$im) {
+        #   rr_22 = temp_rr %>%
+        #     filter(im == '_22') %>%
+        #     ## Note, oesophageal cancer is not binge-affected in any risk source
+        #     mutate(risk = map2(risk, gender, ~ .x * self$scc[[.y]]))
+        #   bind_rows(
+        #     filter(temp_rr, im != '_22'),
+        #     rr_22
+        #   )
+        # } else {
+        #   temp_rr
+        # }
 
         ## Cap risk values if needed
         ## NOTE:: Order is important here, we implement capping of risk values
@@ -479,7 +483,7 @@ mahp <- R6Class(
 
       for(.type in c('base', 'base_former', 'binge', 'binge_former')) {
         .paf = paste0(.type, '_paf')
-        if(!is.null(self$rr[[.type]])) {
+        if(!is.null(self$rr[[.type]]) & nrow(self$rr[[.type]]) > 0) {
           if(grepl('base', .type)) {
             self$af[[.paf]] = full_join(self$rr[[.type]], base_gamma, by = c("gender")) %>%
               mutate(integrand_1.0000 := map2(risk, base_gamma, `*`)) %>%
@@ -532,7 +536,7 @@ mahp <- R6Class(
 
 
       ## init base scaled fractions
-      if(!is.null(self$rr$base_scaled)) {
+      if(!is.null(self$rr$base_scaled) & nrow(self$rr$base_scaled) > 0) {
         self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
@@ -546,7 +550,7 @@ mahp <- R6Class(
       }
 
       ## init binge scaled fractions
-      if(!is.null(self$rr$binge_scaled)) {
+      if(!is.null(self$rr$binge_scaled) & nrow(self$rr$binge_scaled) > 0) {
         self$af$binge_scaled_waf = full_join(binge_gammas, self$rr$binge, by = 'gender') %>%
           mutate(
             integrand_1.0000 = pmap(
@@ -564,7 +568,7 @@ mahp <- R6Class(
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
       }
       ## init calibrated fractions
-      if(!is.null(self$rr$calibrated)) {
+      if(!is.null(self$rr$calibrated) & nrow(self$rr$calibrated) > 0) {
         ## I dunno maybe set up some 1.00 base afs and postpone risk function
         ## calibration until asked for scenarios/drinking groups?
       }
@@ -735,11 +739,38 @@ mahp <- R6Class(
       ## group for each scenario
       # self$paf = mutate(self$paf, (!! .name) := 0)
       invisible(self)
-    }
+    },
 
     ## Results -----------------------------------------------------------------
     ## Functions in this grouping relate to the presentation of results.  We
     ## output the data in long form, and also filter and shape the data for use
     ## in the Shiny App charting utility
+
+    ## Provides all attributable fractions computed
+    get_afs = function() {
+      .temp_af <- NULL
+      for(.af in self$af) {
+        .af_names = names(.af)[grep('^(saf|af)', names(.af))]
+        .af = .af %>%
+          select(c("im", "region", "year", "gender", "age_group", "outcome", .af_names))
+
+        .af <- if(!is.null(self$scc) && '_22' %in% .af$im) {
+          .af_22 = .af %>%
+            filter(im == '_22') %>%
+            gather('key', 'value', .af_names) %>%
+            mutate(value = map2_dbl(value, gender, ~ .x * self$scc[[.y]])) %>%
+            spread(key, value)
+          .af_xx = .af %>%
+            filter(im != '_22')
+
+          bind_rows(.af_xx, .af_22)
+        } else {
+          .af
+        }
+
+        .temp_af <- bind_rows(.temp_af, .af)
+      }
+      .temp_af
+    }
   )
 )
