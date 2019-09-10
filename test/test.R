@@ -158,3 +158,31 @@ ggplot(v5summary, aes(x = im)) +
   thing$add_group('low', list(w = c(0, 20), m = c(0, 25)))
   thing$add_scenario(0.95)
 }
+
+
+what_af <- NULL
+for(i in 1:10) {
+  thing = mahp$new()
+  thing$set_ext('capped')
+  thing$set_ub(150)
+  thing$choose_rr('ihme')
+
+  pc_checker = readr::read_rds(file.path('U:SamChurchill', 'data', 'intermahpr_sample_pc.rds'))
+  pc_fixed = dplyr::mutate(pc_checker, gender = ifelse(gender == 'Male', 'm', 'w'), correction_factor = 0.8)
+  thing$add_pc(pc_fixed)
+
+  thing$set_bb(list('w' = 50, 'm' = 60))
+  thing$set_scc(list('w' = .66, 'm' = .33))
+  thing$set_ext('capped')
+
+  thing$init_fractions()
+  what_af = bind_rows(what_af, thing$get_afs() %>% mutate(run = paste0('run', i)))
+  thing = NULL
+}
+
+formatted = what_af %>%
+  select(-af_current_1.0000) %>%
+  spread(run, af_entire_1.0000)
+
+
+

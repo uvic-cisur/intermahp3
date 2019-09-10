@@ -315,6 +315,8 @@ mahp <- R6Class(
         stop(msg)
       }
 
+      ## Acquire baseline
+
       ## 'Magic' numbers
       yearly_to_daily_conv = 0.002739726
       litres_to_millilitres_conv = 1000
