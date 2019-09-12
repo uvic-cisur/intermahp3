@@ -55,20 +55,13 @@ imp = list(
     'csuch',
 
     'ihme',
-    'ihme_low',
-    'ihme_high',
-
     'ihme_plus',
-    'ihme_plus_low',
-    'ihme_plus_high',
 
     'ihme_zhao',
-    'ihme_zhao_low',
-    'ihme_zhao_high',
-
     'ihme_zhao_plus',
-    'ihme_zhao_plus_low',
-    'ihme_zhao_plus_high'
+
+    'ihme_rehm',
+    'ihme_rehm_plus'
   )
 )
 

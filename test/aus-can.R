@@ -11,36 +11,33 @@ pc0 = bind_rows(aus_pc0, can_pc0) %>%
   mutate(P_FD = 0) %>%
   mutate(Gender = ifelse(Gender == 'Male', 'm', 'w'))
 
+rr_choices = rr_choices = tibble(
+  rr_choice = c(
+    'ihme',
+    'ihme_plus',
+
+    'ihme_zhao',
+    'ihme_zhao_plus',
+
+    'ihme_rehm',
+    'ihme_rehm_plus')
+)
+
 ac_af <- NULL
-
-for(.rr_choice in c(
-  'ihme',
-  'ihme_low',
-  'ihme_high',
-
-  'ihme_plus',
-  'ihme_plus_low',
-  'ihme_plus_high',
-
-  'ihme_zhao',
-  'ihme_zhao_low',
-  'ihme_zhao_high',
-
-  'ihme_zhao_plus',
-  'ihme_zhao_plus_low',
-  'ihme_zhao_plus_high')) {
+.rr_choice = 'ihme_zhao'
+for(.rr_choice in rr_choices$rr_choice) {
   ac_mahp = mahp$new()
   ## In AUS-CAN project, we use IHME methods, disregarding binge effects.
   ## This means that change in consumption is implemented without need to
   ## renormalize the proportion of bingers above threshold
   print(.rr_choice)
-  print(pc0$PCC_litres_year)
+  # print(pc0$PCC_litres_year)
   pc1 = pc0
-  if(grepl('low', .rr_choice)) {pc1 = mutate(pc1, PCC_litres_year = PCC_litres_year * 0.9)}
-  if(grepl('high', .rr_choice)) {pc1 = mutate(pc1, PCC_litres_year = PCC_litres_year * 1.1)}
-  print(pc1$PCC_litres_year)
+  # if(grepl('low', .rr_choice)) {pc1 = mutate(pc1, PCC_litres_year = PCC_litres_year * 0.9)}
+  # if(grepl('high', .rr_choice)) {pc1 = mutate(pc1, PCC_litres_year = PCC_litres_year * 1.1)}
+  # print(pc1$PCC_litres_year)
 
-  ac_mahp$add_pc(pc0)
+  ac_mahp$add_pc(pc1)
   ac_mahp$set_bb(list('w' = 50, 'm' = 60))
   ac_mahp$set_ub(150)
   ac_mahp$set_ext('')
@@ -77,25 +74,7 @@ mort100 = mort1 %>% filter(grepl('[aA]lcohol', ihmec)) %>%
   ungroup() %>%
   rename(condition = ihmec)
 
-rr_choices = tibble(
-  rr_choice = c(
-    'ihme',
-    'ihme_low',
-    'ihme_high',
 
-    'ihme_plus',
-    'ihme_plus_low',
-    'ihme_plus_high',
-
-    'ihme_zhao',
-    'ihme_zhao_low',
-    'ihme_zhao_high',
-
-    'ihme_zhao_plus',
-    'ihme_zhao_plus_low',
-    'ihme_zhao_plus_high'
-  )
-)
 
 mort_choices_100 = crossing(mort100, rr_choices) %>%
   mutate(count_dup = count) %>%
@@ -119,4 +98,78 @@ combine_all = full_join(af1, mort2) %>%
   spread(rr_choice, acount) %>%
   bind_rows(mort_choices_100)
 
-write_csv(combine_all, file.path('data-full', 'CAN-AUS-project-mortality.csv'))
+totals = combine_all %>%
+  group_by(region, gender) %>%
+  summarise_if(is.numeric, sum, na.rm = T)
+
+totals_noihd = combine_all %>%
+  filter(condition != 'Ischemic heart disease') %>%
+  group_by(region, gender) %>%
+  summarise_if(is.numeric, sum, na.rm = T)
+
+totals_just_is_diab = combine_all %>%
+  filter(grepl('(Diab|Ischemic s)', condition)) %>%
+  group_by(region, gender) %>%
+  summarise_if(is.numeric, sum, na.rm = T)
+
+
+write_csv(combine_all, na = '.', file.path('data-full', 'CAN-AUS-project-mortality.csv'))
+write_csv(totals, na = '.', file.path('data-full', 'CAN-AUS-project-mortality-totals.csv'))
+
+
+## Composite curves
+a.w.total = mort2 %>% filter(grepl('^F', gender) & grepl('^A', region)) %>% `$`(count) %>% sum()
+c.w.total = mort2 %>% filter(grepl('^F', gender) & grepl('^C', region)) %>% `$`(count) %>% sum()
+a.m.total = mort2 %>% filter(grepl('^M', gender) & grepl('^A', region)) %>% `$`(count) %>% sum()
+c.m.total = mort2 %>% filter(grepl('^M', gender) & grepl('^C', region)) %>% `$`(count) %>% sum()
+a.b.total = mort2 %>% filter(grepl('^A', region)) %>% `$`(count) %>% sum()
+c.b.total = mort2 %>% filter(grepl('^C', region)) %>% `$`(count) %>% sum()
+
+t.choice = paste0(rr_choices$rr_choice[[1]], '_rr')
+
+mort3 = mort2 %>%
+  group_by(gender, region, condition) %>%
+  summarise_if(is.numeric, sum, na.rm = T)
+
+t.eval = eval(sym(t.choice)) %>% unnest(risk) %>% mutate(x = rep(1:250, 23000/250)) %>%
+  left_join(cdict) %>%
+  filter(grepl('Mort', outcome)) %>%
+  mutate(gender = ifelse(gender == 'm', 'Male', 'Female')) %>%
+  left_join(mort3)
+
+comp_master = bind_rows(
+  lapply(
+    rr_choices$rr_choice,
+    function(.char) {
+      .char %>%
+        paste0('_rr') %>%
+        sym() %>%
+        eval() %>%
+        mutate(rr_choice = .char)
+      }
+    )
+  ) %>%
+  mutate(risk = map(risk, ~.x[1:150])) %>%
+  unnest(risk) %>%
+  mutate(x = rep(1:150, 6*92)) %>%
+  left_join(cdict) %>%
+  filter(grepl('Mort', outcome)) %>%
+  mutate(gender = ifelse(gender == 'm', 'Male', 'Female')) %>%
+  left_join(mort3) %>%
+  filter(!is.na(region))
+
+gendered_comp = comp_master %>%
+  group_by(region, gender, rr_choice, x) %>%
+  summarise(y = sum(count * risk)/sum(count))
+
+combined_comp = comp_master %>%
+  group_by(region, rr_choice, x) %>%
+  summarise(y = sum(count * risk)/sum(count)) %>%
+  mutate(gender = 'Combined')
+
+comp_final = bind_rows(gendered_comp, combined_comp) %>%
+  unite('key', region, gender, rr_choice) %>%
+  spread(key, y)
+
+write_csv(comp_final, file.path('data-full', 'comp-curves.csv'))
+
