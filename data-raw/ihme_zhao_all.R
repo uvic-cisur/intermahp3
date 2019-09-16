@@ -9,10 +9,11 @@ zhao_m = intermahpr_sample_rr %>%
   mutate(im = gsub('Z', '2', im)) %>%
   mutate(condition = gsub(' - Zhao', '', condition))
 
-zhao_w = zhao_m %>%
-  mutate(gender = 'Female') %>%
-  mutate(b3 = -0.2449) %>%
-  mutate(b6 = 0.03329)
+zhao_w = intermahpr_sample_rr %>%
+  filter(grepl('5...2', im) & gender == 'Female')
+# %>%
+#   mutate(b3 = -0.2449) %>%
+#   mutate(b6 = 0.03329)
 
 
 zhao_all = bind_rows(zhao_m, zhao_w) %>%
@@ -40,3 +41,4 @@ ihme_zhao_plus_rr = ihme_zhao_rr %>%
   mutate(risk = map(risk, ~pmax(.x, 0)))
 
 usethis::use_data(ihme_zhao_plus_rr, overwrite = T)
+

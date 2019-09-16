@@ -299,9 +299,8 @@ mahp <- R6Class(
       }
     },
 
-    ## Makes base and binge gamma functions at the prescribed level of
-    ## consumption
-    make_gamma = function(consumption = 1,  binge_strat = FALSE) {
+    ## Computes usable population metrics for Prevalence and Consumption
+    compute_pm = function(consumption = 1) {
       msg = ''
       stop_flag = FALSE
 
@@ -315,15 +314,12 @@ mahp <- R6Class(
         stop(msg)
       }
 
-      ## Acquire baseline
-
       ## 'Magic' numbers
       yearly_to_daily_conv = 0.002739726
       litres_to_millilitres_conv = 1000
       millilitres_to_grams_ethanol_conv = 0.7893
 
-      ## Make the base gamma function
-      base_gamma = self$pc %>%
+      self$pc %>%
         group_by(region, year) %>%
         mutate(
           ## Convert litres/year into grams/day and apply any scenario
@@ -371,6 +367,53 @@ mahp <- R6Class(
           df = p_cd / nc
         ) %>%
         mutate(
+          ## p_bat is "bingers above threshold", i.e. daily bingers on average.
+          ## If p_bat >= p_bd, we must fix this by deflating the tail of the gamma
+          ## distribution above the binge barrier and setting p_bat equal to p_bd.
+          p_bat = df * (gub - gbb)
+        ) %>%
+        mutate(
+          p_bat_ev = ifelse(p_bat > p_bd, p_bd / p_bat, 1)
+        )
+    },
+
+
+    ## Makes base and binge gamma functions at the prescribed level of
+    ## consumption
+    make_gamma = function(consumption = 1,  binge_strat = FALSE) {
+      msg = ''
+      stop_flag = FALSE
+
+      ## Ensure prevalence and consumption data has been supplied
+      if(is.null(self$pc)) {
+        msg = c(msg, 'Prevalence and consumption data needed')
+        stop_flag = TRUE
+      }
+
+      if(stop_flag) {
+        stop(msg)
+      }
+
+      ## Adjust p_bd IF this is a scenario and IF we care about binging
+      ## (for b_bat correction)
+      metrics = if(consumption != 1 && binge_strat) {
+        baseline = self$compute_pm(1)
+        self$compute_pm(consumption) %>% mutate(
+          p_bd = ifelse(
+            baseline$p_bat > 0 & p_bat > 0,
+            p_bd * p_bat / baseline$p_bat,
+            p_bd
+          )
+        )
+      } else {
+        self$compute_pm(consumption)
+      }
+
+
+
+      ## Make the base gamma function
+      base_gamma = metrics %>%
+        mutate(
           ## The base gamma is just a deflated gamma function.  We evaluate from
           ## 1 to the upper bound
           base_gamma = pmap(
@@ -379,15 +422,6 @@ mahp <- R6Class(
               .z * dgamma(x = 1:ceiling(self$ub), shape = .x, scale = .y)
             }
           )
-        ) %>%
-        mutate(
-          ## p_bat is "bingers above threshold", i.e. daily bingers on average.
-          ## If p_bat >= p_bd, we must fix this by deflating the tail of the gamma
-          ## distribution above the binge barrier and setting p_bat equal to p_bd.
-          p_bat = df * (gub - gbb)
-        ) %>%
-        mutate(
-          p_bat_ev = ifelse(p_bat > p_bd, p_bd / p_bat, 1)
         )
 
       ## Error correction is rare, so only do it if needed
@@ -524,7 +558,7 @@ mahp <- R6Class(
               af_group = paste('af', .name, '1.0000', sep = '_')
               self$af[[.paf]] = mutate(
                 self$af[[.paf]],
-                (!! af_group) := pmap(
+                (!! af_group) := pmap_dbl(
                   list(.g = gender, .v = integrand_1.0000, .d = denominator_1.0000),
                   function(.g, .v, .d) {
                     sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
@@ -662,7 +696,7 @@ mahp <- R6Class(
               af_group = paste('saf', .name, .suffix, sep = '_')
               self$af[[.paf]] = mutate(
                 self$af[[.paf]],
-                (!! af_group) := pmap(
+                (!! af_group) := pmap_dbl(
                   list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
                   function(.g, .v, .d) {
                     sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
