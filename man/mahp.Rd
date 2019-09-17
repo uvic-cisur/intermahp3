@@ -18,8 +18,10 @@ API for InterMAHP Shiny App
  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
    oesophageal cancers (only SCC is alcohol-caused)}
  \item{ub}{Upper bound of alcohol consumption}
- \item{dg}{List of drinking groups (gender stratified)}
- \item{sn}{List of scenarios with names and mult. changes in consumption}
+ \item{dg_all}{List of all drinking groups (gender stratified)}
+ \item{dg_cmp}{List of all drinking groups that have been computed}
+ \item{sn_all}{Vector of all scenarios as mult. changes in consumption.}
+ \item{sn_cmp}{Vector of all scenarios that have been computed.}
  \item{ext}{Boolean indicating whether relative risk functions are
    extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
    of 150 grams per day}

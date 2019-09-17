@@ -153,10 +153,14 @@ ggplot(v5summary, aes(x = im)) +
   thing$set_ext('capped')
 
 
-  thing$add_group('middle', list(w = c(20, 30), m = c(25, 40)))
-  thing$init_fractions()
-  thing$add_group('low', list(w = c(0, 20), m = c(0, 25)))
+  thing$add_group('middle', list(w = c(20, 29), m = c(25, 39)))
   thing$add_scenario(0.95)
+  thing$init_fractions()
+  thing$add_group('low', list(w = c(0, 19), m = c(0, 24)))
+  thing$add_group('hi', list(w = c(30, 250), m = c(40, 250)))
+  thing$add_group('sanity', list(w = c(0, 250), m = c(0, 250)))
+  thing$add_scenario(1.07)
+
 }
 
 
