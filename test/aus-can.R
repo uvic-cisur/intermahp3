@@ -24,7 +24,7 @@ rr_choices = rr_choices = tibble(
 )
 
 ac_af <- NULL
-.rr_choice = 'ihme_zhao'
+.rr_choice = 'ihme_rehm'
 for(.rr_choice in rr_choices$rr_choice) {
   ac_mahp = mahp$new()
   ## In AUS-CAN project, we use IHME methods, disregarding binge effects.
@@ -38,7 +38,7 @@ for(.rr_choice in rr_choices$rr_choice) {
   # print(pc1$PCC_litres_year)
 
   ac_mahp$add_pc(pc1)
-  ac_mahp$set_bb(list('w' = 50, 'm' = 60))
+  ac_mahp$set_bb(list('w' = 150, 'm' = 150))
   ac_mahp$set_ub(150)
   ac_mahp$set_ext('')
   ac_mahp$set_scc(list('w' = 2/3, 'm' = 1/3))
@@ -169,7 +169,27 @@ combined_comp = comp_master %>%
 
 comp_final = bind_rows(gendered_comp, combined_comp) %>%
   unite('key', region, gender, rr_choice) %>%
+  mutate(y = y + 1) %>%
   spread(key, y)
 
 write_csv(comp_final, file.path('data-full', 'comp-curves.csv'))
 
+gammas = ac_mahp$make_gamma() %>%
+  unnest(base_gamma) %>%
+  mutate(x = rep(1:150, 12)) %>%
+  unite('key', region, gender, age_group) %>%
+  select(key, x, base_gamma) %>%
+  spread(key, base_gamma)
+
+write_csv(gammas, file.path('data-full', 'pc-curves.csv'))
+
+integrands = ac_mahp$af$base_paf %>%
+  filter(outcome == 'Mortality', im == '_52') %>%
+  select(region, gender, age_group, pf = integrand_1.0000) %>%
+  unnest(pf) %>%
+  mutate(x = rep(1:150, 1800/150)) %>%
+  unite('key', region, gender, age_group) %>%
+  spread(key, pf)
+
+
+write_csv(integrands, file.path('data-full', 'pf-curves.csv'))

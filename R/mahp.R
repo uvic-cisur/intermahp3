@@ -442,7 +442,7 @@ mahp <- R6Class(
             ## the tail.
             p_bat_ec = map2(
               p_bat_ev, bb,
-              ~ifelse(1:ceiling(self$ub) >= .y, 1, p_bat_ev)
+              ~ifelse(1:ceiling(self$ub) < .y, 1, .x)
             )
           ) %>%
           mutate(
@@ -453,6 +453,7 @@ mahp <- R6Class(
             ## binge threshold
             p_bat = ifelse(p_bat > p_bd, p_bd, p_bat)
           )
+
 
         bind_rows(base_gamma_nec, base_gamma_ec)
       }
