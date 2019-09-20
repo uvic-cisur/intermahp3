@@ -24,7 +24,7 @@ rr_choices = rr_choices = tibble(
 )
 
 ac_af <- NULL
-.rr_choice = 'ihme_rehm'
+# .rr_choice = 'ihme_rehm'
 for(.rr_choice in rr_choices$rr_choice) {
   ac_mahp = mahp$new()
   ## In AUS-CAN project, we use IHME methods, disregarding binge effects.
@@ -115,6 +115,94 @@ totals_just_is_diab = combine_all %>%
 
 write_csv(combine_all, na = '.', file.path('data-full', 'CAN-AUS-project-mortality.csv'))
 write_csv(totals, na = '.', file.path('data-full', 'CAN-AUS-project-mortality-totals.csv'))
+
+## Article tables
+catd = read_csv(file.path('data-full', 'ihme_categories.csv'), col_types = 'cc')
+
+T1 = combine_all %>%
+  group_by(region, condition) %>%
+  summarise_if(is.numeric, sum, na.rm = T) %>%
+  left_join(cdict) %>%
+  mutate(number = str_sub(im, 2, 2)) %>%
+  left_join(catd) %>%
+  arrange(category, condition, region)
+
+T1w = T1 %>%
+  ungroup() %>%
+  mutate_if(is.numeric, function(.x) {round(.x, 1)})
+
+write_csv(T1w, file.path('U:SamChurchill', 'From Adam to Sam', 'Australia', 'T1.csv'))
+
+T1sub = T1 %>%
+  ungroup %>%
+  group_by(region, category) %>%
+  summarise_if(is.numeric, sum)
+
+T1subw = T1sub %>%
+  ungroup() %>%
+  mutate_if(is.numeric, function(.x) {round(.x, 1)})
+
+write_csv(T1subw, file.path('U:SamChurchill', 'From Adam to Sam', 'Australia', 'T1sub.csv'))
+
+
+T3g = combine_all %>%
+  left_join(cdict) %>%
+  mutate(number = str_sub(im, 2, 2)) %>%
+  left_join(catd) %>%
+  group_by(region, gender, category) %>%
+  summarise_if(is.numeric, sum, na.rm = T)
+
+T3c = T3g %>%
+  ungroup() %>%
+  group_by(region, category) %>%
+  summarise_if(is.numeric, sum, na.rm = T) %>%
+  mutate(gender = 'Combined')
+
+T3 = bind_rows(T3g, T3c) %>%
+  ungroup() %>%
+  mutate_if(is.numeric, function(.x) {round(.x, 1)})
+
+write_csv(T3, file.path('U:SamChurchill', 'From Adam to Sam', 'Australia', 'T3.csv'))
+
+T3sg = combine_all %>%
+  left_join(cdict) %>%
+  mutate(number = str_sub(im, 2, 2)) %>%
+  left_join(catd) %>%
+  group_by(region, gender, condition) %>%
+  summarise_if(is.numeric, sum, na.rm = T) %>%
+  filter(grepl('c h', condition))
+
+T3sc = T3sg %>%
+  ungroup() %>%
+  group_by(region, condition) %>%
+  summarise_if(is.numeric, sum, na.rm = T) %>%
+  mutate(gender = 'Combined')
+
+T3s = bind_rows(T3sg, T3sc) %>%
+  ungroup() %>%
+  mutate_if(is.numeric, function(.x) {round(.x, 1)})
+
+
+write_csv(T3s, file.path('U:SamChurchill', 'From Adam to Sam', 'Australia', 'T3ihd.csv'))
+
+T3subg = combine_all %>%
+  left_join(cdict) %>%
+  mutate(number = str_sub(im, 2, 2)) %>%
+  left_join(catd) %>%
+  group_by(region, gender) %>%
+  summarise_if(is.numeric, sum, na.rm = T)
+
+T3subc = T3subg %>%
+  ungroup() %>%
+  group_by(region) %>%
+  summarise_if(is.numeric, sum, na.rm = T) %>%
+  mutate(gender = 'Combined')
+
+T3sub = bind_rows(T3subg, T3subc) %>%
+  ungroup() %>%
+  mutate_if(is.numeric, function(.x) {round(.x, 1)})
+
+write_csv(T3sub, file.path('U:SamChurchill', 'From Adam to Sam', 'Australia', 'T3sub.csv'))
 
 
 ## Composite curves
