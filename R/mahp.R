@@ -372,12 +372,13 @@ mahp <- R6Class(
         ) %>%
         mutate(
           ## p_bat is "bingers above threshold", i.e. daily bingers on average.
-          ## If p_bat >= p_bd, we must fix this by deflating the tail of the gamma
-          ## distribution above the binge barrier and setting p_bat equal to p_bd.
+          ## If p_bat >= p_bd, then we have an inconsistency.  The new method
+          ## for fixing this is to assume that the user uploaded binge data is
+          ## unreliable, so we raise p_bd to match p_bat
           p_bat = df * (gub - gbb)
         ) %>%
         mutate(
-          p_bat_ev = ifelse(p_bat > p_bd, p_bd / p_bat, 1)
+          p_bd = ifelse(p_bat > p_bd, p_bat, p_bd)
         )
     },
 
@@ -427,36 +428,6 @@ mahp <- R6Class(
             }
           )
         )
-
-      ## Error correction is rare, so only do it if needed
-      base_gamma = if(isTRUE(all_equal(1, base_gamma$p_bat_ev))) {
-        base_gamma
-      } else {
-        ## Here we peel away gammas that need p_bat correction and recombine
-        base_gamma_nec = filter(base_gamma, p_bat_ev == 1)
-        base_gamma_ec = filter(base_gamma, p_bat_ev != 1) %>%
-          mutate(
-            ## When we need to rescale the tail beyond binge threshold (i.e.
-            ## when the rescaling constant p_bat_ev is different from 1) we
-            ## construct a vector of 1's up to binge and rescaling constant on
-            ## the tail.
-            p_bat_ec = map2(
-              p_bat_ev, bb,
-              ~ifelse(1:ceiling(self$ub) < .y, 1, .x)
-            )
-          ) %>%
-          mutate(
-            ## And then apply this rescaling vector to the base_gamma
-            base_gamma = map2(base_gamma, p_bat_ec, `*`),
-            ## With that fixed, p_bat comes back to p_bd levels at most, and we
-            ## can use this quantity to split bingers and nonbingers below the
-            ## binge threshold
-            p_bat = ifelse(p_bat > p_bd, p_bd, p_bat)
-          )
-
-
-        bind_rows(base_gamma_nec, base_gamma_ec)
-      }
 
       ## If we're building binge-stratified gammas, we split the base gamma here
       ## and return the result
