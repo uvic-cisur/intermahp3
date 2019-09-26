@@ -113,6 +113,7 @@ mahp <- R6Class(
     bb = NULL,
     scc = NULL,
     ub = NULL,
+    mcn = NULL,
     dg_all = NULL,
     dg_cmp = NULL,
     sn_all = NULL,
@@ -215,30 +216,26 @@ mahp <- R6Class(
       invisible(self)
     },
 
+    ## Set Monte Carlo uncertainty sample size
+    set_mcn = function(.integer) {
+      ## inititalize feedback variables
+      msg = ""
+      stop_flag = FALSE
+
+      ## Sanitize the input.  At least 1, or the absolute value of the input, if
+      ## the input can be coerced to an integer
+      self$mcn = max(1, abs(as.integer(.integer)), na.rm = TRUE)
+
+      invisible(self)
+    },
+
     ## Updates relative risk function evaluations with latest parameters
     update_rr = function() {
       if(!is.null(self$rr_choice)) {
         ## Start with the basic function evaluations 1:250
         temp_rr = eval(sym(paste0(self$rr_choice, '_rr')))
 
-        ## If we've set scc proportions and 22 is part of the risk set being
-        ## considered, we apply the proportions directly to the risks.
-        # temp_rr = if(!is.null(self$scc) && '_22' %in% self$rr$im) {
-        #   rr_22 = temp_rr %>%
-        #     filter(im == '_22') %>%
-        #     ## Note, oesophageal cancer is not binge-affected in any risk source
-        #     mutate(risk = map2(risk, gender, ~ .x * self$scc[[.y]]))
-        #   bind_rows(
-        #     filter(temp_rr, im != '_22'),
-        #     rr_22
-        #   )
-        # } else {
-        #   temp_rr
-        # }
-
         ## Cap risk values if needed
-        ## NOTE:: Order is important here, we implement capping of risk values
-        ## AFTER applying SCC adjustment and BEFORE subsetting
         temp_rr = if(!is.null(self$ext) & !is.null(self$ub))
         {
           if(self$ext == 'capped' & self$ub > 150) {
@@ -479,6 +476,14 @@ mahp <- R6Class(
     ## Constructs a sample of relative risk functions for use in developing
     ## uncertainty estimates for AFs
     sample_rr = function() {
+      ## inititalize feedback variables
+      msg = ""
+      stop_flag = FALSE
+
+      ## We're only sampling IHME for now
+      if(rr_choice != 'ihme') {
+        msg = c(msg, 'Sampling only implemented for IHME risk sources at this time')
+      }
 
     },
 
