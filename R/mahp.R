@@ -472,6 +472,16 @@ mahp <- R6Class(
       }
     },
 
+    ## Uncertainty Estimates ---------------------------------------------------
+    ## Functions in this grouping deal with the implementation of Monte Carlo
+    ## methods for the development of uncertainty estimates
+
+    ## Constructs a sample of relative risk functions for use in developing
+    ## uncertainty estimates for AFs
+    sample_rr = function() {
+
+    },
+
     ## Evaluation --------------------------------------------------------------
     ## Functions in this grouping relate to evaluation of intermahp inputs. This
     ## includes the computation of attributable fractions and uncertainty
