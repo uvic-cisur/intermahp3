@@ -140,9 +140,9 @@ ggplot(v5summary, aes(x = im)) +
 
 {
   thing = mahp$new()
-  thing$set_ext('capped')
+  thing$set_ext('linear')
   thing$set_ub(250)
-  thing$choose_rr('csuch')
+  thing$choose_rr('ihme')
 
   pc_checker = readr::read_rds(file.path('U:SamChurchill', 'data', 'intermahpr_sample_pc.rds'))
   pc_fixed = dplyr::mutate(pc_checker, gender = ifelse(gender == 'Male', 'm', 'w'), correction_factor = 0.8)
@@ -150,17 +150,20 @@ ggplot(v5summary, aes(x = im)) +
 
   thing$set_bb(list('w' = 50, 'm' = 60))
   thing$set_scc(list('w' = .66, 'm' = .33))
-  thing$set_ext('capped')
+  thing$set_ext('linear')
 
 
   thing$add_group('middle', list(w = c(20, 29), m = c(25, 39)))
+  thing$add_group('low', list(w = c(0, 19), m = c(0, 24)))
   thing$add_scenario(0.95)
   thing$init_fractions()
-  thing$add_group('low', list(w = c(0, 19), m = c(0, 24)))
   thing$add_group('hi', list(w = c(30, 250), m = c(40, 250)))
   thing$add_group('sanity', list(w = c(0, 250), m = c(0, 250)))
   thing$add_scenario(1.07)
 
+  thing$set_mcn(100)
+  thing$make_ue()
+  # newthing = thing$sample_self()
 }
 
 

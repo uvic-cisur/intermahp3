@@ -5,7 +5,7 @@
 #' @importFrom magrittr %>% %<>%
 #' @importFrom dplyr
 #' mutate filter group_by ungroup inner_join select bind_rows left_join all_equal full_join
-#' @importFrom purrr map pmap map2_dbl map_dbl map2 pmap_dbl
+#' @importFrom purrr map pmap map2_dbl map_dbl map2 pmap_dbl map_chr
 #' @importFrom tibble tibble
 #' @importFrom stringr str_to_lower
 #' @keywords internal

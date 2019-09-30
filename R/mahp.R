@@ -235,6 +235,23 @@ mahp <- R6Class(
         ## Start with the basic function evaluations 1:250
         temp_rr = eval(sym(paste0(self$rr_choice, '_rr')))
 
+        ## If this is a sampling set of RRs we sample
+        temp_rr = if(grepl('sample', self$rr_choice)) {
+          temp_rr %>%
+            mutate(
+              sampled = rnorm(nrow(temp_rr))) %>%
+            mutate(
+              risk = pmap(
+                list(.w = sampled, .x = mean_rr, .y = sd_plus, .z = sd_minus),
+                function(.w, .x, .y, .z) {
+                  .x + (.w > 0) * .w * .y + (.w < 0) * .w * .z
+                }
+              )
+            )
+        } else {
+          temp_rr
+        }
+
         ## Cap risk values if needed
         temp_rr = if(!is.null(self$ext) & !is.null(self$ub))
         {
@@ -472,6 +489,21 @@ mahp <- R6Class(
     ## Uncertainty Estimates ---------------------------------------------------
     ## Functions in this grouping deal with the implementation of Monte Carlo
     ## methods for the development of uncertainty estimates
+
+    sample_self = function() {
+      temp_mahp = self$clone()
+      temp_mahp$rr_choice = paste0(self$rr_choice, '_sample')
+      temp_mahp$update_rr()
+      invisible(temp_mahp)
+    },
+
+    make_ue = function() {
+      for(i in 1:self$mcn) {
+        sample_mahp = self$sample_self()
+
+        sample_mahp$init_fractions()
+      }
+    },
 
     ## Constructs a sample of relative risk functions for use in developing
     ## uncertainty estimates for AFs
