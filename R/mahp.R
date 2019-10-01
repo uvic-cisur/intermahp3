@@ -16,10 +16,8 @@
 #'  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
 #'    oesophageal cancers (only SCC is alcohol-caused)}
 #'  \item{ub}{Upper bound of alcohol consumption}
-#'  \item{dg_all}{List of all drinking groups (gender stratified)}
-#'  \item{dg_cmp}{List of all drinking groups that have been computed}
-#'  \item{sn_all}{Vector of all scenarios as mult. changes in consumption.}
-#'  \item{sn_cmp}{Vector of all scenarios that have been computed.}
+#'  \item{dg}{List of all drinking groups (gender stratified)}
+#'  \item{sn}{Vector of all scenarios as mult. changes in consumption.}
 #'  \item{ext}{Boolean indicating whether relative risk functions are
 #'    extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
 #'    of 150 grams per day}
@@ -114,10 +112,8 @@ mahp <- R6Class(
     scc = NULL,
     ub = NULL,
     mcn = NULL,
-    dg_all = NULL,
-    dg_cmp = NULL,
-    sn_all = NULL,
-    sn_cmp = NULL,
+    sn = NULL,
+    dg = list(),
     ext = NULL,
     cal = NULL,
     rr_choice = NULL,
@@ -529,8 +525,6 @@ mahp <- R6Class(
     init_fractions = function() {
       screen_mahp(self)
       self$af = list()
-      self$sn_cmp = NULL
-      self$dg_cmp = NULL
 
       ## init gammas and binge gammas
       base_gamma = self$make_gamma(1, F)
@@ -578,15 +572,15 @@ mahp <- R6Class(
 
           self$af[[.paf]] = self$af[[.paf]] %>% select(-p_fd)
 
-          if(!is.null(self$dg_all)) {
-            for(.name in names(self$dg_all)) {
+          if(!is.null(self$dg)) {
+            for(.name in names(self$dg)) {
               af_group = paste('af', .name, '1.0000', sep = '_')
               self$af[[.paf]] = mutate(
                 self$af[[.paf]],
                 (!! af_group) := pmap_dbl(
                   list(.g = gender, .v = integrand_1.0000, .d = denominator_1.0000),
                   function(.g, .v, .d) {
-                    sum(.v[ceiling(self$dg_all[[.name]]$group[[.g]][[1]]):ceiling(self$dg_all[[.name]]$group[[.g]][[2]])])/.d
+                    sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
                   }
                 )
               )
@@ -609,14 +603,14 @@ mahp <- R6Class(
           mutate(af_entire_1.0000 = 1) %>%
           select(-p_fd, -base_gamma)
 
-        for(.name in names(self$dg_all)) {
+        for(.name in names(self$dg)) {
           af_group = paste('af', .name, '1.0000', sep = '_')
           self$af$base_scaled_waf = mutate(
             self$af$base_scaled_waf,
             (!! af_group) := pmap_dbl(
               list(.g = gender, .v = integrand_1.0000, .c = comp_current_1.0000),
               function(.g, .v, .c) {
-                sum(.v[ceiling(self$dg_all[[.name]]$group[[.g]][[1]]):ceiling(self$dg_all[[.name]]$group[[.g]][[2]])]) / .c
+                sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])]) / .c
               }
             )
           )
@@ -642,14 +636,14 @@ mahp <- R6Class(
           select(-p_fd, -nonbinge_gamma, -binge_gamma)
 
 
-        for(.name in names(self$dg_all)) {
+        for(.name in names(self$dg)) {
           af_group = paste('af', .name, '1.0000', sep = '_')
           self$af$binge_scaled_waf = mutate(
             self$af$binge_scaled_waf,
             (!! af_group) := pmap_dbl(
               list(.g = gender, .v = integrand_1.0000, .c = comp_current_1.0000),
               function(.g, .v, .c) {
-                sum(.v[ceiling(self$dg_all[[.name]]$group[[.g]][[1]]):ceiling(self$dg_all[[.name]]$group[[.g]][[2]])]) / .c
+                sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])]) / .c
               }
             )
           )
@@ -661,229 +655,57 @@ mahp <- R6Class(
         ## calibration until asked for scenarios/drinking groups?
       }
 
-      for(.scenario in self$sn_all) {
-        self$add_scenario(.scenario)
+      self$cmp_scenarios()
+      self$cmp_groups()
+
+      invisible(self)
+    },
+
+
+    def_scenario = function(.numeric) {
+      ## sanitize the consumption into multiplicative factor
+      .numeric = as.numeric(.numeric)
+
+      if(.numeric <= 0) {
+        message('Scenario consumption change must be given multiplicatively. Values must be positive.')
+        return(invisible(self))
       }
 
-      for(.group in self$dg_all) {
-        self$add_group(.group$name, .group$group)
+      # Don't accept 1
+      if(.numeric == 1) {
+        message('Baseline consumption scenario is already defined.')
+      }
+
+      self$sn = union(self$sn, .numeric)
+
+      ## Try to compute the scenario if fractions exist, but don't warn if not
+      if(!is.null(self$af)) {
+        self$cmp_scenario(.numeric)
       }
 
       invisible(self)
+
     },
 
     ## Adds new scenario attributable fractions and relative attributable
     ## fractions to the partially attributable fraction dataset
     ##   .numeric is a multiplicative constant for relative scenario consumption
     ##     We truncate the value to 4 digits beyond the .
-    add_scenario = function(.numeric) {
-      # The change in consumption used to construct gammas
-      .value = round(.numeric, digits = 4)
-      # Change in consumption as a suffix for variable names
-      .suffix = sprintf("%01.4f",.value)
+    cmp_scenario = function(.numeric) {
+      ## If afs have been initialized then we compute scenario for existing
+      ## groups.  Otherwise this method does nothing.
+      if(!is.null(self$af)) {
 
-      # If scenario has already been computed, leave
-      if(.value %in% self$sn_cmp || .value == 1) {
-        message(paste0('Scenario ', .suffix,' has already been added.'))
-        return(invisible(self))
-      }
-
-      # Scenario integrand (summation values under this methodology)
-      integrand = paste0('integrand_', .suffix)
-      # AF component for current drinkers.  Sum of integrand
-      comp_current = paste0('comp_current_', .suffix)
-      # Denominator in AF computations, equal to 1 + FD component + CD component
-      denominator = paste0('denominator_', .suffix)
-      # 'True' AF before adjustments.  Made practical by hitting it with the
-      # count adjustment
-      af_entire = paste0('af_entire_', .suffix)
-      # Count adjustment. Converts 'true' AF into something that can be used by
-      # assuming the number of non-attributable harms are held constant between
-      # scenarios
-      adj_scenario = paste0('adj_scenario_', .suffix)
-      # Scenario attributable fraction for current drinkers
-      saf_current = paste0('saf_current_', .suffix)
-      # Scenario attributable fraction for the entire population
-      saf_entire = paste0('saf_entire_', .suffix)
-      # Scenario attributable fraction for former drinkers
-      saf_former = paste0('saf_former_', .suffix)
-      # Scaling factor is used to normalize fractions for wholly attributable
-      # conditions
-      scaling_factor = paste0('scaling_factor_', .suffix)
-
-      # Add scenario to store if not present
-      self$sn_all = union(self$sn_all, .value)
-
-      ## init scenario gammas and binge gammas
-      base_gamma = self$make_gamma(.value, F)
-      binge_gammas = self$make_gamma(.value, T)
-
-      ## Naming conventions for fractions:
-      ##  *_#
-      ##  *: the measure type (saf = scenario attributable fraction = fraction
-      ##  with count adjustment applied)
-      ##  #: the consumption level, multiplicative, 4 digits granularity
-
-      for(.paf in c('base_paf', 'base_former_paf', 'binge_paf', 'binge_former_paf')) {
-        if(!is.null(self$af[[.paf]])) {
-          if(grepl('base', .paf)) {
-            self$af[[.paf]] = left_join(
-              self$af[[.paf]], base_gamma,
-              by = c("region", "year", "gender", "age_group")) %>%
-              mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-              select(-p_fd, -base_gamma)
-          } else {
-            self$af[[.paf]] = left_join(
-              self$af[[.paf]], binge_gammas,
-              by = c("region", "year", "gender", "age_group")) %>%
-              mutate(
-                (!! integrand) := pmap(
-                  list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-                  function(.w, .x, .y, .z) {
-                    (.w * .y) + (.x * .z)
-                  }
-                )
-              ) %>%
-              select(-p_fd, -nonbinge_gamma, -binge_gamma)
-          }
-
-          self$af[[.paf]] = self$af[[.paf]] %>%
-            mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-            mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-            mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-            mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
-            mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-            mutate((!! saf_current) := eval(sym(saf_entire)))
-
-
-          if(grepl('former', .paf)) {
-            self$af[[.paf]] = self$af[[.paf]] %>%
-              mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator)))
-          }
-
-          ## When adding a scenario, compute for all existing drinking groups as well
-          if(!is.null(self$dg_all)) {
-            for(.name in names(self$dg_all)) {
-              af_group = paste('saf', .name, .suffix, sep = '_')
-              self$af[[.paf]] = mutate(
-                self$af[[.paf]],
-                (!! af_group) := pmap_dbl(
-                  list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
-                  function(.g, .v, .d) {
-                    sum(.v[ceiling(self$dg_all[[.name]]$group[[.g]][[1]]):ceiling(self$dg_all[[.name]]$group[[.g]][[2]])])/.d
-                  }
-                )
-              )
-            }
-          }
-        }
-      }
-
-      ## init base scaled fractions
-      if(!is.null(self$af$base_scaled_waf)) {
-        self$af$base_scaled_waf = left_join(
-          self$af$base_scaled_waf, base_gamma,
-          by = c("region", "year", "gender", "age_group")) %>%
-          mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
-          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          ## Scaling factor is used post-hoc for drinking groups and scenarios.
-          ## For current drinkers and entire population we just get values of 1
-          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
-          mutate((!! saf_current) := scaling_factor_1.0000 / eval(sym(scaling_factor))) %>%
-          mutate((!! saf_entire) := eval(sym(saf_current))) %>%
-          select(-p_fd, -base_gamma)
-
-        ## When adding a scenario, compute for all existing drinking groups as well
-        for(.name in names(self$dg_all)) {
-          af_group = paste('saf', .name, .suffix, sep = '_')
-          self$af$base_scaled_waf = mutate(
-            self$af$base_scaled_waf,
-            (!! af_group) := pmap_dbl(
-              list(.g = gender, .v = eval(sym(integrand)), .c = eval(sym(comp_current)), .s = eval(sym(saf_current))),
-              function(.g, .v, .c, .s) {
-                .s * sum(.v[ceiling(self$dg_all[[.name]]$group[[.g]][[1]]):ceiling(self$dg_all[[.name]]$group[[.g]][[2]])]) / .c
-              }
-            )
-          )
-        }
-      }
-
-      ## init binge scaled fractions
-      if(!is.null(self$af$binge_scaled_waf)) {
-        self$af$binge_scaled_waf = left_join(
-          self$af$binge_scaled_waf, binge_gammas,
-          by = c("region", "year", "gender", "age_group")) %>%
-          mutate(
-            (!! integrand) := pmap(
-              list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
-              function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
-            )
-          ) %>%
-          mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-          mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-          ## Scaling factor is used post-hoc for drinking groups and scenarios.
-          ## For current drinkers and entire population we just get values of 1
-          mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
-          mutate((!! saf_current) := scaling_factor_1.0000 / eval(sym(scaling_factor))) %>%
-          mutate((!! saf_entire) := eval(sym(saf_current))) %>%
-          select(-p_fd, -nonbinge_gamma, -binge_gamma)
-
-        ## When adding a scenario, compute for all existing drinking groups as well
-        for(.name in names(self$dg_all)) {
-          af_group = paste('saf', .name, .suffix, sep = '_')
-          self$af$binge_scaled_waf = mutate(
-            self$af$binge_scaled_waf,
-            (!! af_group) := pmap_dbl(
-              list(.g = gender, .v = eval(sym(integrand)), .c = eval(sym(comp_current)), .s = eval(sym(saf_current))),
-              function(.g, .v, .c, .s) {
-                .s * sum(.v[ceiling(self$dg_all[[.name]]$group[[.g]][[1]]):ceiling(self$dg_all[[.name]]$group[[.g]][[2]])]) / .c
-              }
-            )
-          )
-        }
-      }
-
-      # ## init calibrated fractions
-      # if(!is.null(self$rr$calibrated)) {
-      #   ## I dunno maybe set up some 1.00 base afs and postpone risk function
-      #   ## calibration until asked for scenarios/drinking groups?
-      # }
-      #
-      #
-      #
-      # ## Implement scenarios by constructing new integrand vectors, constructing
-      # ## the scenario's integrand, current drinker component, and denominator,
-      # ## then evaluating afs for drinking groups
-      # self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
-
-      self$sn_cmp = union(self$sn_cmp, .value)
-
-      invisible(self)
-    },
-
-    ## Adds a new set of drinking groups for each existing scenario
-    ##
-    add_group = function(.name, .group) {
-      ## Won't screen for repeated group definitions, just names.
-      grp_names = map_chr(self$dg_cmp, ~`[[`(.x, 'name'))
-      if(.name %in% grp_names) {
-        message(paste0('Group named ', .name,' has already been added.'))
-        return(invisible(self))
-      }
-
-      .relname = paste0('group', length(self$dg_all) + 1)
-      self$dg_all[[.relname]] = list(name = .name, group = .group)
-
-      for(.value in c(1, self$sn_cmp)) {
-        ## When adding a drinking group, only add for already computed scenarios
-        ## to ensure necessary values are computed in sheets.
-
+        # The change in consumption used to construct gammas
+        .value = round(.numeric, digits = 4)
         # Change in consumption as a suffix for variable names
         .suffix = sprintf("%01.4f",.value)
 
-        .af_type = if(.value == 1) {'af'} else {'saf'}
-        af_group = paste(.af_type, .relname, .suffix, sep = '_')
+        # Don't accept 1
+        if(.value == 1) {
+          message(paste0('Scenario ', .suffix,' has already been added.'))
+          return(invisible(self))
+        }
 
         # Scenario integrand (summation values under this methodology)
         integrand = paste0('integrand_', .suffix)
@@ -891,8 +713,25 @@ mahp <- R6Class(
         comp_current = paste0('comp_current_', .suffix)
         # Denominator in AF computations, equal to 1 + FD component + CD component
         denominator = paste0('denominator_', .suffix)
+        # 'True' AF before adjustments.  Made practical by hitting it with the
+        # count adjustment
+        af_entire = paste0('af_entire_', .suffix)
+        # Count adjustment. Converts 'true' AF into something that can be used by
+        # assuming the number of non-attributable harms are held constant between
+        # scenarios
+        adj_scenario = paste0('adj_scenario_', .suffix)
         # Scenario attributable fraction for current drinkers
-        saf_current = paste0(.af_type, '_current_', .suffix)
+        saf_current = paste0('saf_current_', .suffix)
+        # Scenario attributable fraction for the entire population
+        saf_entire = paste0('saf_entire_', .suffix)
+        # Scenario attributable fraction for former drinkers
+        saf_former = paste0('saf_former_', .suffix)
+        # Scaling factor is used to normalize fractions for wholly attributable
+        # conditions
+        scaling_factor = paste0('scaling_factor_', .suffix)
+
+        # Add scenario to store if not present
+        self$sn = union(self$sn, .value)
 
         ## init scenario gammas and binge gammas
         base_gamma = self$make_gamma(.value, F)
@@ -906,42 +745,255 @@ mahp <- R6Class(
 
         for(.paf in c('base_paf', 'base_former_paf', 'binge_paf', 'binge_former_paf')) {
           if(!is.null(self$af[[.paf]])) {
-            ## When adding a paf drinking group, only add for already computed
-            ## scenarios to ensure that Values for integrand and denominator
-            ## have already been initialized
-            self$af[[.paf]] = mutate(
-              self$af[[.paf]],
-              (!! af_group) := pmap_dbl(
-                list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
-                function(.g, .v, .d) {
-                  sum(.v[ceiling(.group[[.g]][[1]]):ceiling(.group[[.g]][[2]])])/.d
-                }
-              )
-            )
+            if(grepl('base', .paf)) {
+              self$af[[.paf]] = left_join(
+                self$af[[.paf]], base_gamma,
+                by = c("region", "year", "gender", "age_group")) %>%
+                mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+                select(-p_fd, -base_gamma)
+            } else {
+              self$af[[.paf]] = left_join(
+                self$af[[.paf]], binge_gammas,
+                by = c("region", "year", "gender", "age_group")) %>%
+                mutate(
+                  (!! integrand) := pmap(
+                    list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+                    function(.w, .x, .y, .z) {
+                      (.w * .y) + (.x * .z)
+                    }
+                  )
+                ) %>%
+                select(-p_fd, -nonbinge_gamma, -binge_gamma)
+            }
+
+            self$af[[.paf]] = self$af[[.paf]] %>%
+              mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+              mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+              mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+              mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+              mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+              mutate((!! saf_current) := eval(sym(saf_entire)))
+
+
+            if(grepl('former', .paf)) {
+              self$af[[.paf]] = self$af[[.paf]] %>%
+                mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator)))
+            }
+
+            ## When adding a scenario, compute for all existing drinking groups as well
+            if(!is.null(self$dg)) {
+              for(.name in names(self$dg)) {
+                af_group = paste('saf', .name, .suffix, sep = '_')
+                self$af[[.paf]] = mutate(
+                  self$af[[.paf]],
+                  (!! af_group) := pmap_dbl(
+                    list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
+                    function(.g, .v, .d) {
+                      sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
+                    }
+                  )
+                )
+              }
+            }
           }
         }
 
-        for(.waf in c('base_scaled_waf', 'binge_scaled_waf')) {
-          if(!is.null(self$af[[.waf]])) {
-            ## When adding a waf drinking group, only add for already computed
-            ## scenarios to ensure that Values for integrand, current component,
-            ## and current attributable fraction have already been initialized
-            self$af[[.waf]] = mutate(
-              self$af[[.waf]],
+        ## init base scaled fractions
+        if(!is.null(self$af$base_scaled_waf)) {
+          self$af$base_scaled_waf = left_join(
+            self$af$base_scaled_waf, base_gamma,
+            by = c("region", "year", "gender", "age_group")) %>%
+            mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+            mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+            mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+            ## Scaling factor is used post-hoc for drinking groups and scenarios.
+            ## For current drinkers and entire population we just get values of 1
+            mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
+            mutate((!! saf_current) := scaling_factor_1.0000 / eval(sym(scaling_factor))) %>%
+            mutate((!! saf_entire) := eval(sym(saf_current))) %>%
+            select(-p_fd, -base_gamma)
+
+          ## When adding a scenario, compute for all existing drinking groups as well
+          for(.name in names(self$dg)) {
+            af_group = paste('saf', .name, .suffix, sep = '_')
+            self$af$base_scaled_waf = mutate(
+              self$af$base_scaled_waf,
               (!! af_group) := pmap_dbl(
                 list(.g = gender, .v = eval(sym(integrand)), .c = eval(sym(comp_current)), .s = eval(sym(saf_current))),
                 function(.g, .v, .c, .s) {
-                  .s * sum(.v[ceiling(.group[[.g]][[1]]):ceiling(.group[[.g]][[2]])]) / .c
+                  .s * sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])]) / .c
                 }
               )
             )
           }
         }
+
+        ## init binge scaled fractions
+        if(!is.null(self$af$binge_scaled_waf)) {
+          self$af$binge_scaled_waf = left_join(
+            self$af$binge_scaled_waf, binge_gammas,
+            by = c("region", "year", "gender", "age_group")) %>%
+            mutate(
+              (!! integrand) := pmap(
+                list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
+                function(.w, .x, .y, .z) {(.w * .y) + (.x * .z)}
+              )
+            ) %>%
+            mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+            mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+            ## Scaling factor is used post-hoc for drinking groups and scenarios.
+            ## For current drinkers and entire population we just get values of 1
+            mutate((!! scaling_factor) := eval(sym(denominator)) / eval(sym(comp_current))) %>%
+            mutate((!! saf_current) := scaling_factor_1.0000 / eval(sym(scaling_factor))) %>%
+            mutate((!! saf_entire) := eval(sym(saf_current))) %>%
+            select(-p_fd, -nonbinge_gamma, -binge_gamma)
+
+          ## When adding a scenario, compute for all existing drinking groups as well
+          for(.name in names(self$dg)) {
+            af_group = paste('saf', .name, .suffix, sep = '_')
+            self$af$binge_scaled_waf = mutate(
+              self$af$binge_scaled_waf,
+              (!! af_group) := pmap_dbl(
+                list(.g = gender, .v = eval(sym(integrand)), .c = eval(sym(comp_current)), .s = eval(sym(saf_current))),
+                function(.g, .v, .c, .s) {
+                  .s * sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])]) / .c
+                }
+              )
+            )
+          }
+        }
+
+        # ## init calibrated fractions
+        # if(!is.null(self$rr$calibrated)) {
+        #   ## I dunno maybe set up some 1.00 base afs and postpone risk function
+        #   ## calibration until asked for scenarios/drinking groups?
+        # }
+        #
+        #
+        #
+        # ## Implement scenarios by constructing new integrand vectors, constructing
+        # ## the scenario's integrand, current drinker component, and denominator,
+        # ## then evaluating afs for drinking groups
+        # self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
+
+        self$sn = union(self$sn, .value)
+
+      } else {
+        message('Fractions must be initialized before groups may be computed')
       }
 
-      self$dg_cmp[[.relname]] = list(name = .name, group = .group)
+      invisible(self)
+    },
+
+    cmp_scenarios = function() {
+      for(.scenario in self$sn) {
+        self$cmp_scenario(.scenario)
+      }
+    },
+
+    ## Defines or redefines a drinking group
+    def_group = function(.name, .group) {
+      ## sanitize the name into alphanumeric string
+      .name = gsub('[^[:alnum:]]', '', as.character(.name))
+
+      ## Ensure .group has the right structure
+      if(!is.list(.group) ||
+         is.null(.group$m) || !is.numeric(.group$m) || length(.group$m) != 2 || .group$m[2] <= .group$m[1] ||
+         is.null(.group$w) || !is.numeric(.group$w) || length(.group$w) != 2 || .group$w[2] <= .group$w[1])  {
+        message('Group definition must conform to specifications in InterMAHP3 API manual')
+        return(invisible(self))
+      }
+
+      if(!is.null(self$dg[[.name]])) {
+        message(c('Redefining group ', .name))
+      }
+
+      self$dg[[.name]] = .group
+
+      ## This method just checks and adds groups to the list of all groups.
+      ## Computation occurs on initialization or by invoking the relevant function
 
       invisible(self)
+    },
+
+    cmp_group = function(.name) {
+      ## If afs have been initialized then we compute groups for existing
+      ## scenarios.  Otherwise this method does nothing.
+      if(!is.null(self$af)) {
+        for(.value in c(1, self$sn)) {
+          ## When adding a drinking group, only add for already computed scenarios
+          ## to ensure necessary values are computed in sheets.
+
+          # Change in consumption as a suffix for variable names
+          .suffix = sprintf("%01.4f",.value)
+
+          .af_type = if(.value == 1) {'af'} else {'saf'}
+          af_group = paste(.af_type, .name, .suffix, sep = '_')
+
+          # Scenario integrand (summation values under this methodology)
+          integrand = paste0('integrand_', .suffix)
+          # AF component for current drinkers.  Sum of integrand
+          comp_current = paste0('comp_current_', .suffix)
+          # Denominator in AF computations, equal to 1 + FD component + CD component
+          denominator = paste0('denominator_', .suffix)
+          # Scenario attributable fraction for current drinkers
+          saf_current = paste0(.af_type, '_current_', .suffix)
+
+          ## init scenario gammas and binge gammas
+          base_gamma = self$make_gamma(.value, F)
+          binge_gammas = self$make_gamma(.value, T)
+
+          ## Naming conventions for fractions:
+          ##  *_#
+          ##  *: the measure type (saf = scenario attributable fraction = fraction
+          ##  with count adjustment applied)
+          ##  #: the consumption level, multiplicative, 4 digits granularity
+
+          for(.paf in c('base_paf', 'base_former_paf', 'binge_paf', 'binge_former_paf')) {
+            if(!is.null(self$af[[.paf]])) {
+              ## When adding a paf drinking group, only add for already computed
+              ## scenarios to ensure that Values for integrand and denominator
+              ## have already been initialized
+              self$af[[.paf]] = mutate(
+                self$af[[.paf]],
+                (!! af_group) := pmap_dbl(
+                  list(.g = gender, .v = eval(sym(integrand)), .d = eval(sym(denominator))),
+                  function(.g, .v, .d) {
+                    sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])/.d
+                  }
+                )
+              )
+            }
+          }
+
+          for(.waf in c('base_scaled_waf', 'binge_scaled_waf')) {
+            if(!is.null(self$af[[.waf]])) {
+              ## When adding a waf drinking group, only add for already computed
+              ## scenarios to ensure that Values for integrand, current component,
+              ## and current attributable fraction have already been initialized
+              self$af[[.waf]] = mutate(
+                self$af[[.waf]],
+                (!! af_group) := pmap_dbl(
+                  list(.g = gender, .v = eval(sym(integrand)), .c = eval(sym(comp_current)), .s = eval(sym(saf_current))),
+                  function(.g, .v, .c, .s) {
+                    .s * sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])]) / .c
+                  }
+                )
+              )
+            }
+          }
+        }
+      } else {
+        message('Fractions must be initialized before groups may be computed')
+      }
+
+      invisible(self)
+    },
+
+    cmp_groups = function() {
+      for(.name in names(self$dg)) {
+        self$cmp_group(.name)
+      }
     },
 
     ## Results -----------------------------------------------------------------

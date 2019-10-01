@@ -153,13 +153,18 @@ ggplot(v5summary, aes(x = im)) +
   thing$set_ext('linear')
 
 
-  thing$add_group('middle', list(w = c(20, 29), m = c(25, 39)))
-  thing$add_group('low', list(w = c(0, 19), m = c(0, 24)))
-  thing$add_scenario(0.95)
+  # thing$def_group('middle 43t89 &*%', list(w = c(20, 29, 39), m = c(39, 25)))
+  thing$def_group('low', list(w = c(0, 19), m = c(0, 24)))
+  thing$def_scenario(0.95)
   thing$init_fractions()
-  thing$add_group('hi', list(w = c(30, 250), m = c(40, 250)))
-  thing$add_group('sanity', list(w = c(0, 250), m = c(0, 250)))
-  thing$add_scenario(1.07)
+  thing$def_group('hi', list(w = c(30, 250), m = c(40, 250)))
+  thing$def_group('sanity', list(w = c(0, 250), m = c(0, 250)))
+  thing$def_scenario(1.07)
+  thing$cmp_groups()
+  thing$cmp_scenarios()
+  thing$cmp_groups()
+  thing$cmp_scenarios()
+
 
   thing$set_mcn(100)
   thing$make_ue()
