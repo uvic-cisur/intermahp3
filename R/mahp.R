@@ -16,6 +16,8 @@
 #'  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
 #'    oesophageal cancers (only SCC is alcohol-caused)}
 #'  \item{ub}{Upper bound of alcohol consumption}
+#'  \item{mcn}{Number of samples in Monte Carlo uncertainty estimation}
+#'  \item{pc_sample_vars}{Which prevalence and consumption variables to sample}
 #'  \item{dg}{List of all drinking groups (gender stratified)}
 #'  \item{sn}{Vector of all scenarios as mult. changes in consumption.}
 #'  \item{ext}{Boolean indicating whether relative risk functions are
@@ -112,6 +114,7 @@ mahp <- R6Class(
     scc = NULL,
     ub = NULL,
     mcn = NULL,
+    pc_sample_vars = NULL,
     sn = NULL,
     dg = list(),
     ext = NULL,
@@ -225,9 +228,20 @@ mahp <- R6Class(
       invisible(self)
     },
 
+    ## Set pc variables to sample
+    set_pc_sample_vars = function(.character) {
+      ## inititalize feedback variables
+      msg = ""
+      stop_flag = FALSE
+
+      self$pc_sample_vars = unique(.character)
+
+      invisible(self)
+    },
+
     ## Updates relative risk function evaluations with latest parameters
     update_rr = function() {
-      if(!is.null(self$rr_choice)) {
+      if(!is.null(self$rr_choice) && self$rr_choice %in% imp$rr_choices) {
         ## Start with the basic function evaluations 1:250
         temp_rr = eval(sym(paste0(self$rr_choice, '_rr')))
 
@@ -356,9 +370,7 @@ mahp <- R6Class(
         ) %>%
         ungroup() %>%
         mutate(
-          ## Set gamma constants and binge levels (otherwise we have a loooot of
-          ## vector lookups)
-          gamma_cs = as.numeric(imp$gamma_cs[gender]),
+          gamma_cs = if('gamma_cs' %in% names(.)) {gamma_cs} else {as.numeric(imp$gamma_cs[gender])},
           bb = as.numeric(self$bb[gender])
         ) %>%
         mutate(
@@ -487,10 +499,11 @@ mahp <- R6Class(
     ## methods for the development of uncertainty estimates
 
     sample_self = function() {
-      temp_mahp = self$clone()
-      temp_mahp$rr_choice = paste0(self$rr_choice, '_sample')
-      temp_mahp$update_rr()
-      invisible(temp_mahp)
+      sampled = self$clone()
+      sampled$rr_choice = paste0(self$rr_choice, '_sample')
+      sampled$update_rr()
+      # sampled$pc = self$sample_pc()
+      invisible(sampled)
     },
 
     make_ue = function() {
@@ -501,18 +514,79 @@ mahp <- R6Class(
       }
     },
 
-    ## Constructs a sample of relative risk functions for use in developing
-    ## uncertainty estimates for AFs
-    sample_rr = function() {
+    ## Constructs a sample of prevalence and consumption variables for use in
+    ## developing uncertainty estimates for AFs
+    sample_pc = function() {
       ## inititalize feedback variables
       msg = ""
       stop_flag = FALSE
 
-      ## We're only sampling IHME for now
-      if(rr_choice != 'ihme') {
-        msg = c(msg, 'Sampling only implemented for IHME risk sources at this time')
+      sampled = self$pc
+
+      ## norman is the norm n
+      norman = nrow(sampled)
+
+      for(var in self$pc_sample_vars) {
+        if(var == "pcc_litres_year") {
+          if(!('pcc_litres_year_sd' %in% names(sampled))) {
+            ## when not provided, standard deviation chosen so that 2*sd = 0.25 when estimate is 10
+            ## NOTE:: no justification is provided for this value, please supply a sample standard deviation or do not sample this variable
+            sampled %<>% mutate(pcc_litres_year_sd = sqrt(pcc_litres_year/640))
+          }
+
+          total_consumption <- sampled %>%
+            select(region, year, pcc_litres_year, pcc_litres_year_sd) %>%
+            distinct()
+
+          short_norman = nrow(total_consumption)
+
+          total_consumption %<>% mutate(
+            pcc_litres_year = rnorm(short_norman, pcc_litres_year, pcc_litres_year_sd)
+          )
+
+          sampled <- select(sampled, -pcc_litres_year, -pcc_litres_year_sd) %>%
+            left_join(total_consumption, by = c("region", "year"))
+
+        } else if(var == "relative_consumption") {
+          if(!('relative_consumption_sd' %in% names(sampled))) {
+            ## when not provided, standard deviation chosen so that 2*sd = 0.025 when estimate is 1
+            ## NOTE:: no justification is provided for this value, please supply a sample standard deviation or do not sample this variable
+            sampled %<>% mutate(relative_consumption_sd = sqrt(relative_consumption/640))
+          }
+
+          sampled %<>% mutate(
+            relative_consumption = rnorm(norman, relative_consumption, relative_consumption_sd)
+          )
+
+        } else if(grepl("^p_", var)) {
+          var_sd = paste0(var, '_sd')
+
+          if(!(var_sd %in% names(sampled))) {
+            ## p_ variablesa are proportions.  We assume a sample size of 1000 and construct the standard variance.
+            ## NOTE:: no justification is provided for this value, please supply a sample standard deviation or do not sample this variable
+            sampled %<>% mutate((!! var_sd) := sqrt(0.001 * eval(sym(var)) * (1 - eval(sym(var)))))
+          }
+
+          sampled %<>% mutate(
+            (!! var) := rnorm(norman, eval(sym(var)), eval(sym(var_sd)))
+          )
+        } else if(var == "gamma_c") {
+          if(!('gamma_sd' %in% names(sampled))) {
+            # SE from bounds on 95% CI, Kehoe et al. (2012)
+            # NOTE:: see Kehoe et al., supply your own only if you know what you're doing
+            sampled %<>% mutate(
+              gamma_c = map_dbl(gender, ~`[[`(imp$gamma_c, .x)),
+              gamma_sd = map_dbl(gender, ~`[[`(imp$gamma_sd, .x)))
+          }
+
+          sampled %<>% mutate(
+            gamma_c = rnorm(norman, gamma_c, gamma_sd),
+            gamma_cs = gamma_c^2,
+          )
+        }
       }
 
+      invisible(sampled)
     },
 
     ## Evaluation --------------------------------------------------------------

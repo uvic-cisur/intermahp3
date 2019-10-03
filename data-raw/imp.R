@@ -13,7 +13,7 @@ imp = list(
     "w" = 1/1.258/1.258,
     "m" = 1/1.171/1.171
   ),
-  gamma_stderror = list( # Bounds on 95% CI, Kehoe et al. (2012)
+  gamma_sd = list( # Bounds on 95% CI, Kehoe et al. (2012)
     "w" = (1.293 - 1.223) / 2 / 1.96,
     "m" = (1.197 - 1.144) / 2 / 1.96
   ),

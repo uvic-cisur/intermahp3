@@ -157,18 +157,22 @@ ggplot(v5summary, aes(x = im)) +
   thing$def_group('low', list(w = c(0, 19), m = c(0, 24)))
   thing$def_scenario(0.95)
   thing$init_fractions()
-  thing$def_group('hi', list(w = c(30, 250), m = c(40, 250)))
-  thing$def_group('sanity', list(w = c(0, 250), m = c(0, 250)))
-  thing$def_scenario(1.07)
-  thing$cmp_groups()
-  thing$cmp_scenarios()
-  thing$cmp_groups()
-  thing$cmp_scenarios()
+  # thing$def_group('hi', list(w = c(30, 250), m = c(40, 250)))
+  # thing$def_group('sanity', list(w = c(0, 250), m = c(0, 250)))
+  # thing$def_scenario(1.07)
+  # thing$cmp_groups()
+  # thing$cmp_scenarios()
+  # thing$cmp_groups()
+  # thing$cmp_scenarios()
 
 
-  thing$set_mcn(100)
-  thing$make_ue()
+  # thing$set_mcn(5)
+  # thing$make_ue()
   # newthing = thing$sample_self()
+
+
+  thing$set_pc_sample_vars(c(imp$pc_vars, 'gamma_c'))
+  thing$add_pc(thing$sample_pc())
 }
 
 

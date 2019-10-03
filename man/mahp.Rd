@@ -18,6 +18,8 @@ API for InterMAHP Shiny App
  \item{scc}{Gender-stratified propotion of squamous-cell carcinoma among
    oesophageal cancers (only SCC is alcohol-caused)}
  \item{ub}{Upper bound of alcohol consumption}
+ \item{mcn}{Number of samples in Monte Carlo uncertainty estimation}
+ \item{pc_sample_vars}{Which prevalence and consumption variables to sample}
  \item{dg}{List of all drinking groups (gender stratified)}
  \item{sn}{Vector of all scenarios as mult. changes in consumption.}
  \item{ext}{Boolean indicating whether relative risk functions are

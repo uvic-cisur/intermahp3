@@ -23,13 +23,103 @@ screen_pc <- function(.data) {
   msg = c(msg, g_list$msg)
   stop_flag = stop_flag | g_list$stop_flag
 
+  ## Proportions must be nonnegative.  We're feeling lazy today so this is the lazy solution
+  ## Lifetime abstainers
+  where_la_neg = .data$p_la < 0
+  count_la_neg = sum(where_la_neg)
+  if(count_la_neg > 0){
+    msg = c(
+      msg,
+      "The proportion of Lifetime Abstainers must be nonnegative. Supplied values are negative in rows:\n",
+      paste0(
+        "\t",
+        which(where_la_neg),
+        "\nThese values will be set to 0."
+      )
+    )
+    .data$p_la[where_la_neg] <- 0
+  }
+
+  ## Former drinkers
+  where_fd_neg = .data$p_fd < 0
+  count_fd_neg = sum(where_fd_neg)
+  if(count_fd_neg > 0){
+    msg = c(
+      msg,
+      "The proportion of Former Drinkers must be nonnegative. Supplied values are negative in rows:\n",
+      paste0(
+        "\t",
+        which(where_fd_neg),
+        "\nThese values will be set to 0."
+      )
+    )
+    .data$p_fd[where_fd_neg] <- 0
+  }
+
+  ## Current drinkers
+  where_cd_neg = .data$p_cd < 0
+  count_cd_neg = sum(where_cd_neg)
+  if(count_cd_neg > 0){
+    msg = c(
+      msg,
+      "The proportion of Current Drinkers must be nonnegative. Supplied values are negative in rows:\n",
+      paste0(
+        "\t",
+        which(where_cd_neg),
+        "\nThese values will be set to 0."
+      )
+    )
+    .data$p_cd[where_cd_neg] <- 0
+  }
+
+
+  ## Binge drinkers
+  where_bd_neg = .data$p_bd < 0
+  count_bd_neg = sum(where_bd_neg)
+  if(count_bd_neg > 0){
+    msg = c(
+      msg,
+      "The proportion of Binge Drinkers must be nonnegative. Supplied values are negative in rows:\n",
+      paste0(
+        "\t",
+        which(where_bd_neg),
+        "\nThese values will be set to 0."
+      )
+    )
+    .data$p_bd[where_bd_neg] <- 0
+  }
+
   ## p_la + p_fd + p_cd must sum to 1
   p_check = .data$p_la + .data$p_fd + .data$p_cd
   where_diff = abs(p_check - 1) > 1e-4
+  where_zero = p_check == 0
   count_diff = sum(where_diff)
-  if(count_diff > 0){
-    msg = c(msg, "The proportions of Lifetime Abstainers, Current Drinkers, and Former Drinkers must sum to 1 (tolerance 1e-4).  They do not sum to 1 in rows:\n", paste0("\t", which(where_diff), "\n"))
+  count_zero = sum(where_zero)
+  if(count_zero > 0){
+    msg = c(
+      msg,
+      "Fatal Error: Proportions of Lifetime Abstainers, Current Drinkers, and Former Drinkers sum to 0 in the following rows:",
+      paste0(
+        "\t",
+        which(where_zero),
+        "\nThese values will be set to 0."
+      )
+    )
     stop_flag = TRUE
+  }
+  if(count_diff > 0){
+    msg = c(
+      msg,
+      "The proportions of Lifetime Abstainers, Current Drinkers, and Former Drinkers must sum to 1 (tolerance 1e-4).  They do not sum to 1 in rows:\n",
+      paste0(
+        "\t",
+        which(where_diff)
+      ),
+      "\nThese rows are being normalized."
+    )
+    .data$p_la[where_diff] <- .data$p_la[where_diff] / p_check[where_diff]
+    .data$p_fd[where_diff] <- .data$p_fd[where_diff] / p_check[where_diff]
+    .data$p_cd[where_diff] <- .data$p_cd[where_diff] / p_check[where_diff]
   }
 
   ## More screening can be put here
@@ -85,9 +175,9 @@ screen_vars = function(.data, .vars, .name) {
     msg = c(msg, paste(.name, "variables needed but not supplied:\n"), paste0("\t", missing_vars, "\n"))
     stop_flag = TRUE
   }
-  if(length(extra_vars) > 0) {
-    msg = c(msg, paste(.name, "variables supplied but not needed:\n"), paste0("\t", extra_vars, "\n"))
-  }
+  # if(length(extra_vars) > 0) {
+  #   msg = c(msg, paste(.name, "variables supplied but not needed:\n"), paste0("\t", extra_vars, "\n"))
+  # }
   if(msg != "") message(msg)
   if(stop_flag) stop(msg)
   .data
