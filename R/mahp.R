@@ -498,6 +498,8 @@ mahp <- R6Class(
     ## Functions in this grouping deal with the implementation of Monte Carlo
     ## methods for the development of uncertainty estimates
 
+    # sample_mahps,
+
     sample_self = function() {
       sampled = self$clone()
       sampled$rr_choice = paste0(self$rr_choice, '_sample')
@@ -1075,7 +1077,8 @@ mahp <- R6Class(
     ## output the data in long form, and also filter and shape the data for use
     ## in the Shiny App charting utility
 
-    ## Provides all attributable fractions computed
+    ## Provides all attributable fractions computed and performs post-hoc
+    ## squamous cell carcinoma AAF correction
     get_afs = function() {
       .temp_af <- NULL
       for(.af in self$af) {
