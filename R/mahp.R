@@ -179,9 +179,9 @@ mahp <- R6Class(
     },
 
     ## Set binge consumption definitions
-    set_bb = function(.numeric) {
+    set_bb = function(.list) {
       ## TODO: Ensure gender-stratified and within reasonable parameters
-      self$bb = .numeric
+      self$bb = .list
       invisible(self)
     },
 

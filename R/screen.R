@@ -124,9 +124,12 @@ screen_pc <- function(.data) {
 
   ## More screening can be put here
 
-  message(msg)
+
   if(stop_flag) {
-    stop(msg)
+    warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
+    return(NULL)
+  } else if(msg != "") {
+    message(msg)
   }
 
   .data
@@ -151,9 +154,11 @@ screen_mm = function(.data) {
 
   ## More screening can be put here
 
-  message(msg)
   if(stop_flag) {
-    stop(msg)
+    warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
+    return(NULL)
+  } else if(msg != "") {
+    message(msg)
   }
 
   .data
@@ -178,8 +183,15 @@ screen_vars = function(.data, .vars, .name) {
   # if(length(extra_vars) > 0) {
   #   msg = c(msg, paste(.name, "variables supplied but not needed:\n"), paste0("\t", extra_vars, "\n"))
   # }
-  if(msg != "") message(msg)
-  if(stop_flag) stop(msg)
+
+  if(stop_flag) {
+    warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
+    return(NULL)
+  } else if(msg != "") {
+    message(msg)
+  }
+  # if(msg != "") message(msg)
+  # if(stop_flag) stop(msg)
   .data
 }
 
