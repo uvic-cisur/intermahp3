@@ -91,6 +91,10 @@
 #'\code{$get_afs} Provides all attributable fractions computed and evaluates scc
 #'  correction if supplied
 #'
+#'\code{$get_long_afs} Invokes get_afs and formats as long
+#'
+#'\code{$get_long_counts} Invokes get_long_afs and applied afs to counts
+#'
 #'@importFrom R6 R6Class
 #'@name mahp
 NULL
@@ -1103,6 +1107,27 @@ mahp <- R6Class(
         .temp_af <- bind_rows(.temp_af, .af)
       }
       .temp_af
+    },
+
+
+    ## Invokes get_afs and formats as long
+    get_long_afs = function() {
+      .wide_af = self$get_afs()
+      .af_names = names(.wide_af)[grep('^(saf|af)', names(.wide_af))]
+
+      .long_af = .wide_af %>% gather(key = 'af_key', value = 'af_value', .af_names)
+      .long_af
+    },
+
+    ## Invokes get_long_afs and applied afs to counts
+    get_long_counts = function() {
+      if(is.null(self$mm)) {
+        warning('Morbidity/mortality data required for this operation')
+      } else {
+        .long_af = self$get_long_afs()
+        .long_ac = left_join(.long_af, self$mm) %>%
+          mutate(ac_value = af_value * count)
+      }
     }
   )
 )

@@ -100,5 +100,9 @@ API for InterMAHP Shiny App
 
 \code{$get_afs} Provides all attributable fractions computed and evaluates scc
  correction if supplied
+
+\code{$get_long_afs} Invokes get_afs and formats as long
+
+\code{$get_long_counts} Invokes get_long_afs and applied afs to counts
 }
 

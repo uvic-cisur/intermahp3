@@ -8,5 +8,6 @@
 #' @importFrom purrr map pmap map2_dbl map_dbl map2 pmap_dbl map_chr
 #' @importFrom tibble tibble
 #' @importFrom stringr str_to_lower
+#' @importFrom tidyr gather spread
 #' @keywords internal
 foo <- function() {return("bar")}

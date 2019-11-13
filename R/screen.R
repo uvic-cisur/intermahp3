@@ -21,7 +21,7 @@ screen_pc <- function(.data) {
   ## Check gender uniformity
   g_list = screen_gender(.data$gender)
   msg = c(msg, g_list$msg)
-  stop_flag = stop_flag | g_list$stop_flag
+  stop_flag = stop_flag || g_list$stop_flag
 
   ## Proportions must be nonnegative.  We're feeling lazy today so this is the lazy solution
   ## Lifetime abstainers
@@ -128,7 +128,7 @@ screen_pc <- function(.data) {
   if(stop_flag) {
     warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
     return(NULL)
-  } else if(msg != "") {
+  } else if(length(msg > 0) && msg[[1]] != "") {
     message(msg)
   }
 
@@ -150,14 +150,14 @@ screen_mm = function(.data) {
   ## Check gender uniformity
   g_list = screen_gender(.data$gender)
   msg = c(msg, g_list$msg)
-  stop_flag = stop_flag | g_list$stop_flag
+  stop_flag = stop_flag || g_list$stop_flag
 
   ## More screening can be put here
 
   if(stop_flag) {
     warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
     return(NULL)
-  } else if(msg != "") {
+  } else if(length(msg > 0) && msg[[1]] != "") {
     message(msg)
   }
 
@@ -187,7 +187,7 @@ screen_vars = function(.data, .vars, .name) {
   if(stop_flag) {
     warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
     return(NULL)
-  } else if(msg != "") {
+  } else if(length(msg > 0) && msg[[1]] != "") {
     message(msg)
   }
   # if(msg != "") message(msg)
