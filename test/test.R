@@ -146,6 +146,8 @@ ggplot(v5summary, aes(x = im)) +
 
   pc_checker = readr::read_rds(file.path('U:SamChurchill', 'data', 'intermahpr_sample_pc.rds'))
   pc_fixed = dplyr::mutate(pc_checker, gender = ifelse(gender == 'Male', 'm', 'w'), correction_factor = 0.8)
+  broken = readr::read_rds(file.path('U:SamChurchill', 'data', 'intermahpr_sample_rr.rds'))
+  thing$add_pc(broken)
   thing$add_pc(pc_fixed)
 
   thing$set_bb(list('w' = 50, 'm' = 60))

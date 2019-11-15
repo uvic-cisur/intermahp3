@@ -231,32 +231,40 @@ screen_mahp = function(.mahp) {
   msg = ''
   stop_flag = FALSE
   if(is.null(.mahp$pc)) {
-    msg = c(msg, 'Prevalence and Consumption dataset not provided.\n')
+    msg = c(msg, '\tPrevalence and Consumption dataset not provided.\n')
     stop_flag = TRUE
   }
 
   if(is.null(.mahp$rr)) {
-    msg = c(msg, 'Relative risk source not chosen.\n')
+    msg = c(msg, '\tRelative risk source not chosen.\n')
     stop_flag = TRUE
   }
 
   if(is.null(.mahp$ub)) {
-    msg = c(msg, 'Upper bound not set.\n')
+    msg = c(msg, '\tUpper bound not set.\n')
     stop_flag = TRUE
   }
 
   if(is.null(.mahp$bb)) {
-    msg = c(msg, 'Binge bounds not set.\n')
+    msg = c(msg, '\tBinge bounds not set.\n')
     stop_flag = TRUE
   }
 
   if(is.null(.mahp$scc) & '_22' %in% .mahp$rr$im) {
-    msg = c(msg, 'Squamous cell carcinoma proportion of oesophageal cancers not set.\n')
+    msg = c(msg, '\tSquamous cell carcinoma proportion of oesophageal cancers not set.\n')
     stop_flag = TRUE
   }
 
-  message(msg)
   if(stop_flag) {
-    stop(msg)
+    warning(c("Model construction incomplete due to the following errors:\n", msg, "Please attend to these errors and try again."))
+    return(NULL)
+  } else if(length(msg > 0) && msg[[1]] != "") {
+    message(msg)
   }
+
+
+  # message(msg)
+  # if(stop_flag) {
+  #   stop(msg)
+  # }
 }
