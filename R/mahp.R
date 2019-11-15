@@ -603,10 +603,16 @@ mahp <- R6Class(
 
     ## Initialize and populate fraction sheets
     init_fractions = function() {
+      # message('Initializing data')
+
+      # message('\tScreening model object')
       screen_mahp(self)
+
+      # message('\tResetting fraction data')
       self$af = list()
 
       ## init gammas and binge gammas
+      # message('\tInitializing exposure distributions')
       base_gamma = self$make_gamma(1, F)
       binge_gammas = self$make_gamma(1, T)
 
@@ -616,6 +622,7 @@ mahp <- R6Class(
       ##  2: the measure group
       ##  #: the consumption level, multiplicative, 4 digits precision
 
+      # message('Computing Attributable Fractions')
       for(.type in c('base', 'base_former', 'binge', 'binge_former')) {
         .paf = paste0(.type, '_paf')
         if(!is.null(self$rr[[.type]]) & nrow(self$rr[[.type]]) > 0) {
@@ -730,6 +737,7 @@ mahp <- R6Class(
         }
       }
       ## init calibrated fractions
+
       if(!is.null(self$rr$calibrated) & nrow(self$rr$calibrated) > 0) {
         ## I dunno maybe set up some 1.00 base afs and postpone risk function
         ## calibration until asked for scenarios/drinking groups?
