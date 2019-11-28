@@ -80,6 +80,17 @@
 #'@section Evaluation Methods:
 #'\code{$init_fractions} Initialize and populate fraction sheets
 #'
+#'\code{$def_scenario()} Defines a scenario
+#'\code{$rm_scenario}
+#'\code{$cmp_scenario()} Adds new scenario attributable fractions and relative attributable fractions to the partially attributable fraction dataset
+#'\code{$cmp_scenarios()}
+#'
+#'\code{$def_group()} Defines or redefines a group
+#'\code{$rm_group}
+#'\code{$cmp_group()}
+#'\code{$cmp_groups()}
+#'
+#'
 #'\code{$add_scenario()} Adds new scenario attributable fractions and relative
 #'  attributable fractions to the skeleton dataset for each existing drinking
 #'  group
@@ -749,7 +760,7 @@ mahp <- R6Class(
       invisible(self)
     },
 
-
+    ## Defines a scenario
     def_scenario = function(.numeric) {
       ## sanitize the consumption into multiplicative factor
       .numeric = as.numeric(.numeric)
@@ -772,6 +783,11 @@ mahp <- R6Class(
       }
 
       invisible(self)
+
+    },
+
+    ## removes the given scenario if it exists
+    rm_scenario = function(.numeric) {
 
     },
 
@@ -1002,6 +1018,12 @@ mahp <- R6Class(
       ## Computation occurs on initialization or by invoking the relevant function
 
       invisible(self)
+    },
+
+
+    ## removes the given drinking group if it exists
+    rm_group = function(.name) {
+
     },
 
     cmp_group = function(.name) {
