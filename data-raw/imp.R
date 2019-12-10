@@ -53,6 +53,8 @@ imp = list(
   ),
   rr_choices = c(
     'csuch',
+    'cisur',
+    'who',
 
     'ihme',
     'ihme_plus',

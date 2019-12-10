@@ -1014,8 +1014,10 @@ mahp <- R6Class(
 
       self$dg[[.name]] = .group
 
-      ## This method just checks and adds groups to the list of all groups.
-      ## Computation occurs on initialization or by invoking the relevant function
+      ## Try to compute the group if fractions exist, but don't warn if not
+      if(!is.null(self$af)) {
+        self$cmp_group(.name)
+      }
 
       invisible(self)
     },
@@ -1023,10 +1025,15 @@ mahp <- R6Class(
 
     ## removes the given drinking group if it exists
     rm_group = function(.name) {
+      ## sanitize the name into alphanumeric string
+      .name = gsub('[^[:alnum:]]', '', as.character(.name))
 
     },
 
     cmp_group = function(.name) {
+      ## sanitize the name into alphanumeric string
+      .name = gsub('[^[:alnum:]]', '', as.character(.name))
+
       ## If afs have been initialized then we compute groups for existing
       ## scenarios.  Otherwise this method does nothing.
       if(!is.null(self$af)) {

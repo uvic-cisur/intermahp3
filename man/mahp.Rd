@@ -88,6 +88,17 @@ API for InterMAHP Shiny App
 
 \code{$init_fractions} Initialize and populate fraction sheets
 
+\code{$def_scenario()} Defines a scenario
+\code{$rm_scenario}
+\code{$cmp_scenario()} Adds new scenario attributable fractions and relative attributable fractions to the partially attributable fraction dataset
+\code{$cmp_scenarios()}
+
+\code{$def_group()} Defines or redefines a group
+\code{$rm_group}
+\code{$cmp_group()}
+\code{$cmp_groups()}
+
+
 \code{$add_scenario()} Adds new scenario attributable fractions and relative
  attributable fractions to the skeleton dataset for each existing drinking
  group
