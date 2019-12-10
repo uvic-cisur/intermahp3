@@ -152,10 +152,20 @@ mahp <- R6Class(
       invisible(self)
     },
 
+    rm_pc = function() {
+      self$pc = NULL
+      invisible(self)
+    },
+
     ## Prepares a morbidity and mortality dataset
     add_mm = function(.data) {
       .data = screen_mm(.data)
       self$mm = .data
+      invisible(self)
+    },
+
+    rm_mm = function() {
+      self$mm = NULL
       invisible(self)
     },
 
@@ -1027,6 +1037,8 @@ mahp <- R6Class(
     rm_group = function(.name) {
       ## sanitize the name into alphanumeric string
       .name = gsub('[^[:alnum:]]', '', as.character(.name))
+
+      warning(c('rm_group ', .name))
 
     },
 
