@@ -175,9 +175,9 @@ mahp <- R6Class(
       ## First check that the source is valid, then set the source and update
       ## risk set
       if(is.null(.char)) {
-        message('No relative risk source selected')
+        warning('No relative risk source selected')
       } else if(!(.char %in% imp$rr_choices)) {
-        message(paste0('Unknown relative risk source: ', .char))
+        warning(paste0('Unknown relative risk source: ', .char))
       } else {
         self$rr_choice = .char
         self$update_rr()
@@ -215,12 +215,12 @@ mahp <- R6Class(
       self$ub = .numeric
 
       if(.numeric > 250) {
-        message('Maximum permitted upper bound is 250 grams-ethanol per day.')
+        warning('Maximum permitted upper bound is 250 grams-ethanol per day.')
       }
       self$ub = min(self$ub, 250)
 
       if(.numeric < 10) {
-        message('Minimum permitted upper bound is 10 grams-ethanol per day.')
+        warning('Minimum permitted upper bound is 10 grams-ethanol per day.')
       }
       self$ub = max(self$ub, 10)
 
@@ -774,15 +774,24 @@ mahp <- R6Class(
     def_scenario = function(.numeric) {
       ## sanitize the consumption into multiplicative factor
       .numeric = as.numeric(.numeric)
+      .suffix = sprintf("%01.4f", .numeric)
+      .sn_name = paste0(sprintf('%02.2+f', 100 * (.numeric - 1)), '%')
 
       if(.numeric <= 0) {
-        message('Scenario consumption change must be given multiplicatively. Values must be positive.')
+        warning('Scenario consumption change must be given multiplicatively. Values must be positive.')
         return(invisible(self))
       }
 
       # Don't accept 1
       if(.numeric == 1) {
-        message('Baseline consumption scenario is already defined.')
+        warning('Baseline consumption scenario is already defined.')
+        return(invisible(self))
+      }
+
+      # jettison if scenario already exists
+      if(.numeric %in% self$sn) {
+        warning(paste0('Scenario ', .sn_name,' has already been added.'))
+        return(invisible(self))
       }
 
       self$sn = union(self$sn, .numeric)
@@ -798,7 +807,11 @@ mahp <- R6Class(
 
     ## removes the given scenario if it exists
     rm_scenario = function(.numeric) {
+      .numeric = as.numeric(.numeric)
+      .suffix = sprintf("%01.4f", .numeric)
+      .sn_name = paste0(sprintf('%02.2+f', 100 * (.numeric - 1)), '%')
 
+      warning(c('rm_scenario ', .sn_name))
     },
 
     ## Adds new scenario attributable fractions and relative attributable
@@ -817,7 +830,7 @@ mahp <- R6Class(
 
         # Don't accept 1
         if(.value == 1) {
-          message(paste0('Scenario ', .suffix,' has already been added.'))
+          warning(paste0('Scenario ', .suffix,' has already been added.'))
           return(invisible(self))
         }
 
@@ -993,7 +1006,7 @@ mahp <- R6Class(
         self$sn = union(self$sn, .value)
 
       } else {
-        message('Fractions must be initialized before groups may be computed')
+        warning('Fractions must be initialized before groups may be computed')
       }
 
       invisible(self)
@@ -1014,12 +1027,12 @@ mahp <- R6Class(
       if(!is.list(.group) ||
          is.null(.group$m) || !is.numeric(.group$m) || length(.group$m) != 2 || .group$m[2] <= .group$m[1] ||
          is.null(.group$w) || !is.numeric(.group$w) || length(.group$w) != 2 || .group$w[2] <= .group$w[1])  {
-        message('Group definition must conform to specifications in InterMAHP3 API manual')
+        warning('Group definition must conform to specifications in InterMAHP3 API manual')
         return(invisible(self))
       }
 
       if(!is.null(self$dg[[.name]])) {
-        message(c('Redefining group ', .name))
+        warning(c('Redefining group ', .name))
       }
 
       self$dg[[.name]] = .group
@@ -1113,7 +1126,7 @@ mahp <- R6Class(
           }
         }
       } else {
-        message('Fractions must be initialized before groups may be computed')
+        warning('Fractions must be initialized before groups may be computed')
       }
 
       invisible(self)
