@@ -1032,6 +1032,10 @@ mahp <- R6Class(
       }
 
       if(!is.null(self$dg[[.name]])) {
+        if(.name %in% c('entire', 'current', 'former')) {
+          warning(c("Group name ", .name, " would override a base group."))
+          return(invisible(self))
+        }
         warning(c('Redefining group ', .name))
       }
 
@@ -1050,9 +1054,17 @@ mahp <- R6Class(
     rm_group = function(.name) {
       ## sanitize the name into alphanumeric string
       .name = gsub('[^[:alnum:]]', '', as.character(.name))
+      re_match = paste0('_', .name, '_')
 
-      warning(c('rm_group ', .name))
+      self$dg[[.name]] <- NULL
+      for(af_name in names(self$af)) {
+        dg_cols = grep(re_match, names(self$af[[af_name]]))
+        self$af[[af_name]][dg_cols] = NULL
+      }
 
+      # warning(c('rm_group ', .name))
+
+      invisible(self)
     },
 
     cmp_group = function(.name) {
