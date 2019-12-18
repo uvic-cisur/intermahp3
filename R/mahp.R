@@ -809,9 +809,19 @@ mahp <- R6Class(
     rm_scenario = function(.numeric) {
       .numeric = as.numeric(.numeric)
       .suffix = sprintf("%01.4f", .numeric)
-      .sn_name = paste0(sprintf('%02.2+f', 100 * (.numeric - 1)), '%')
+      # .sn_name = paste0(sprintf('%02.2+f', 100 * (.numeric - 1)), '%')
 
-      warning(c('rm_scenario ', .sn_name))
+      re_match = paste0('_', .suffix, '$')
+
+      self$sn = self$sn[self$sn != .numeric]
+      for(af_name in names(self$af)) {
+        sn_cols = grep(re_match, names(self$af[[af_name]]))
+        self$af[[af_name]][sn_cols] = NULL
+      }
+
+      # warning(c('rm_scenario ', .sn_name))
+
+      invisible(self)
     },
 
     ## Adds new scenario attributable fractions and relative attributable
