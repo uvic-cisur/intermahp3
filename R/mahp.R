@@ -697,7 +697,6 @@ mahp <- R6Class(
         }
       }
 
-
       ## init base scaled fractions
       if(!is.null(self$rr$base_scaled) & nrow(self$rr$base_scaled) > 0) {
         self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
@@ -768,6 +767,11 @@ mahp <- R6Class(
       self$cmp_groups()
 
       invisible(self)
+    },
+
+    ## Remove attributable fraction sheet
+    rm_af = function() {
+      self$af = NULL
     },
 
     ## Defines a scenario
@@ -1209,7 +1213,7 @@ mahp <- R6Class(
         warning('Morbidity/mortality data required for this operation')
       } else {
         .long_af = self$get_long_afs()
-        .long_ac = left_join(.long_af, self$mm) %>%
+        .long_ac = inner_join(.long_af, self$mm) %>%
           mutate(ac_value = af_value * count)
       }
     }
