@@ -152,7 +152,15 @@ screen_mm = function(.data) {
   msg = c(msg, g_list$msg)
   stop_flag = stop_flag || g_list$stop_flag
 
+  ## Check IM format (must be _## or convertible to _##)
+  im_subbed = str_sub(paste0('_', gsub('[^[:digit:]]', '', as.character(.data$im))), 1, 3)
+  if(unique(str_length(im_subbed)) != 3) {
+    msg = c(msg, "IM variable malformed, please see intermahp readme for details.")
+    stop_flag = TRUE
+  }
+
   ## More screening can be put here
+
 
   if(stop_flag) {
     warning(c(msg, "Fatal errors detected, dataset not usable.  Please attend to these errors and try again."))
