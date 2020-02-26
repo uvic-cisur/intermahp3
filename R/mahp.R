@@ -1214,7 +1214,12 @@ mahp <- R6Class(
       } else {
         .long_af = self$get_long_afs()
         .long_ac = inner_join(.long_af, self$mm) %>%
-          mutate(ac_value = af_value * count)
+          mutate(ac_value = af_value * count) %>%
+          ## In the app we prefer separate status & scenarios variables over
+          ## rewriting a lot of code
+          mutate(status = gsub('^...?_([[:alnum:]]*).*', '\\1', af_key)) %>%
+          mutate(sn = as.numeric(gsub('.*(.{6})$', '\\1', af_key))) %>%
+          mutate(scenario = ifelse(sn == 1, 'Baseline', paste0(sprintf('%02.2+f', 100 * (sn - 1)), '%')))
       }
     }
   )
