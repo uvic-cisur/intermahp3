@@ -20,8 +20,8 @@
 #'  \item{pc_sample_vars}{Which prevalence and consumption variables to sample}
 #'  \item{dg}{List of all drinking groups (gender stratified)}
 #'  \item{sn}{Vector of all scenarios as mult. changes in consumption.}
-#'  \item{ext}{Boolean indicating whether relative risk functions are
-#'    extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
+#'  \item{ext}{Character indicating whether relative risk functions are
+#'    extrapolated linearly or capped after a consumption level
 #'    of 150 grams per day}
 #'  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
 #'    curves for calibrable wholly attributable conditions}
@@ -133,7 +133,7 @@ mahp <- R6Class(
     sn = NULL,
     dg = list(),
     ext = NULL,
-    cal = NULL,
+    cal = FALSE,
     rr_choice = NULL,
 
 
@@ -180,7 +180,7 @@ mahp <- R6Class(
         warning(paste0('Unknown relative risk source: ', .char))
       } else {
         self$rr_choice = .char
-        self$update_rr()
+        # self$update_rr()
         # self$rr = eval(sym(paste0(.char, '_rr')))
       }
       invisible(self)
@@ -198,7 +198,7 @@ mahp <- R6Class(
     set_ext = function(.char) {
       self$ext = .char
 
-      self$update_rr()
+      # self$update_rr()
 
       invisible(self)
     },
@@ -224,7 +224,7 @@ mahp <- R6Class(
       }
       self$ub = max(self$ub, 10)
 
-      self$update_rr()
+      # self$update_rr()
 
       invisible(self)
     },
@@ -235,7 +235,7 @@ mahp <- R6Class(
 
       self$scc = .numeric
 
-      self$update_rr()
+      # self$update_rr()
 
       invisible(self)
     },
@@ -253,6 +253,12 @@ mahp <- R6Class(
       invisible(self)
     },
 
+    set_cal = function(.bool) {
+      self$cal = .bool
+
+      invisible(self)
+    },
+
     ## Set pc variables to sample
     set_pc_sample_vars = function(.character) {
       ## inititalize feedback variables
@@ -265,6 +271,8 @@ mahp <- R6Class(
     },
 
     ## Updates relative risk function evaluations with latest parameters
+    ## Note: This function MUST be called manually before fractions are
+    ## initialized.
     update_rr = function() {
       if(!is.null(self$rr_choice) && self$rr_choice %in% imp$rr_choices) {
         ## Start with the basic function evaluations 1:250
@@ -321,33 +329,99 @@ mahp <- R6Class(
           temp_rr
         }
 
+        cal_rr = if(!is.null(self$mm) & !is.null(self$pc) & self$cal) {
+          self$mm %>%
+            filter(im %in% imp$rr_cal) %>%
+            select(im, region, year, gender, age_group, outcome, count) %>%
+            inner_join(self$make_gamma(1, F), by = imp$pc_key_vars) %>%
+            mutate(
+              threshold = ceiling(
+                map2_dbl(
+                  im,
+                  gender,
+                  ~if(str_sub(.x, 1, 2) == '_6') {
+                    0
+                  } else {
+                    `[[`(self$bb, .y)
+                  }
+                )
+              ),
+              phat = count / drinkers
+            ) %>%
+            mutate(
+              k = pmap_dbl(
+                list(
+                  .w = base_gamma, .x = ceiling(self$ub), .y = threshold, .z = phat
+                ),
+                function(.w, .x, .y, .z) {
+                  .z / sum((1:(.x-.y)) * .w[(.y+1):.x])
+                }
+              )
+            ) %>%
+            # mutate(
+            #   fn = pmap(
+            #     list(.w = base_gamma, .x = ceiling(self$ub), .y = threshold, .z = count),
+            #     function(.w, .x, .y, .z) {
+            #       function(k) {
+            #         sum((k * 1:(.x-.y)) * .w[(.y+1):.x]) - .z
+            #       }
+            #     }
+            #   )
+            # ) %>%
+            # mutate(
+            #   k = map_dbl(
+            #     fn,
+            #     ~nloptr(
+            #       x0 = 0.01,
+            #       eval_f = .x,
+            #       lb = 0,
+            #       ub = 1,
+            #       opts = list(
+            #         "algorithm" = "NLOPT_LN_COBYLA",
+            #         "xtol_rel" = 1.0e-30
+            #       )
+            #     )$solution
+            #   )
+            # ) %>%
+            mutate(
+              risk = pmap(
+                list(.w = 1/drinkers, .x = ceiling(self$ub), .y = threshold, .z = k),
+                function(.w, .x, .y, .z) {
+                  .w * c(rep(0, .y), (.z * 1:(.x-.y)))
+                }
+              )
+            ) %>%
+            select(c('im', imp$pc_key_vars, 'outcome', 'count', 'k', 'risk'))
+        } else {
+          NULL
+        }
+
+
         ## Categorize risk functions by methodology.
         ## Note that IHME fits entirely into the $base category, while CSUCH and
         ## related require all categories.  Wholly attributable categories
         ## should be able to be used by all.
         self$rr = list(
           base = temp_rr %>%
-            filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
+            filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.null(risk)) %>%
             select(im, gender, outcome, risk),
           base_former = temp_rr %>%
-            filter(bingea == 0 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
+            filter(bingea == 0 & !wholly_attr & r_fd != 0 & !is.null(risk)) %>%
             select(im, gender, outcome, r_fd, risk),
           binge = temp_rr %>%
-            filter(bingea == 1 & !wholly_attr & r_fd == 0 & !is.na(risk)) %>%
+            filter(bingea == 1 & !wholly_attr & r_fd == 0 & !is.null(risk)) %>%
             select(im, gender, outcome, risk, binge_risk),
           binge_former = temp_rr %>%
-            filter(bingea == 1 & !wholly_attr & r_fd != 0 & !is.na(risk)) %>%
+            filter(bingea == 1 & !wholly_attr & r_fd != 0 & !is.null(risk)) %>%
             select(im, gender, outcome, r_fd, risk, binge_risk),
           base_scaled = temp_rr %>%
-            filter(bingea == 0 & wholly_attr & !is.na(risk)) %>%
+            filter(bingea == 0 & wholly_attr & !is.null(risk)) %>%
             select(im, gender, outcome, risk),
           binge_scaled = temp_rr %>%
-            filter(bingea == 1 & wholly_attr & !is.na(risk)) %>%
+            filter(bingea == 1 & wholly_attr & !is.null(risk)) %>%
             select(im, gender, outcome, risk, binge_risk),
-          calibrated = temp_rr %>%
-            filter(is.na(risk)) %>%
-            select(im, gender, outcome), # TODO:: Calibrate absolute risk curves
-          im = temp_rr$im %>% unique() %>% sort()
+          calibrated = cal_rr, # TODO:: Calibrate absolute risk curves
+          im = c(temp_rr$im, cal_rr$im) %>% unique() %>% sort()
         )
       }
     },
@@ -514,7 +588,7 @@ mahp <- R6Class(
           return()
       } else {
         base_gamma %>%
-          select(c(imp$pc_key_vars, 'p_fd', 'base_gamma')) %>%
+          select(c(imp$pc_key_vars, drinkers, 'p_fd', 'base_gamma')) %>%
           return()
       }
     },
@@ -528,7 +602,7 @@ mahp <- R6Class(
     sample_self = function() {
       sampled = self$clone()
       sampled$rr_choice = paste0(self$rr_choice, '_sample')
-      sampled$update_rr()
+      # sampled$update_rr()
       # sampled$pc = self$sample_pc()
       invisible(sampled)
     },
@@ -1213,13 +1287,38 @@ mahp <- R6Class(
         warning('Morbidity/mortality data required for this operation')
       } else {
         .long_af = self$get_long_afs()
-        .long_ac = inner_join(.long_af, self$mm) %>%
+        .long_ac = inner_join(
+          .long_af,
+          self$mm,
+          by = c("im", "region", "year", "gender", "age_group", "outcome")
+        ) %>%
           mutate(ac_value = af_value * count) %>%
           ## In the app we prefer separate status & scenarios variables over
           ## rewriting a lot of code
           mutate(status = gsub('^...?_([[:alnum:]]*).*', '\\1', af_key)) %>%
           mutate(sn = as.numeric(gsub('.*(.{6})$', '\\1', af_key))) %>%
-          mutate(scenario = ifelse(sn == 1, 'Baseline', paste0(sprintf('%02.2+f', 100 * (sn - 1)), '%')))
+          mutate(scenario = ifelse(sn == 1, 'Baseline', paste0(sprintf('%02.2+f', 100 * (sn - 1)), '%'))) %>%
+          mutate(cc = str_sub(im, 2, 2)) %>%
+          inner_join(
+            tibble(
+              # This is the canonical CC designation for the InterMAHP shiny app
+              # if this is needed LITERALLY anywhere else, we need to include it
+              # as a separate data object, or weave it onto the RR data
+              cc = as.character(1:9),
+              condition_category = c(
+                "Communicable",
+                "Cancer",
+                "Endocrine",
+                "Neuro",
+                "Cardio",
+                "Digestive",
+                "Collisions",
+                "Unintentional",
+                "Intentional"
+              )
+            ),
+            by = "cc"
+          )
       }
     }
   )

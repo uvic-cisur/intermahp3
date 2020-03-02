@@ -9,5 +9,6 @@
 #' @importFrom tibble tibble
 #' @importFrom stringr str_to_lower str_sub
 #' @importFrom tidyr gather spread
+#' @importFrom nloptr nloptr
 #' @keywords internal
 foo <- function() {return("bar")}

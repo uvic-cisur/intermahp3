@@ -64,6 +64,9 @@ imp = list(
 
     'ihme_rehm',
     'ihme_rehm_plus'
+  ),
+  rr_cal = c(
+    c('_32', '_41', '_42', '_43', '_53', '_61', '_65')
   )
 )
 

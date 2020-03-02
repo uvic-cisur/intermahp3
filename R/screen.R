@@ -23,6 +23,14 @@ screen_pc <- function(.data) {
   msg = c(msg, g_list$msg)
   stop_flag = stop_flag || g_list$stop_flag
 
+  ## Ensure positivity of populations
+  init_n = nrow(.data)
+  .data = filter(.data, population > 0)
+  rmvd_n = init_n - nrow(.data)
+  if(rmvd_n) {
+    msg = c(msg, paste0(rmvd_n, " rows with nonpositive populations removed from prevalence and consumption dataset."))
+  }
+
   ## Proportions must be nonnegative.  We're feeling lazy today so this is the lazy solution
   ## Lifetime abstainers
   where_la_neg = .data$p_la < 0
@@ -146,6 +154,14 @@ screen_mm = function(.data) {
   stop_flag = FALSE
   if(is.null(.data)) {stop('No morbidity and mortality dataset supplied')}
   .data = screen_vars(.data, imp$mm_vars, "Morbidity and Mortality")
+
+  ## Ensure nonnegativity of counts
+  init_n = nrow(.data)
+  .data = filter(.data, count >= 0)
+  rmvd_n = init_n - nrow(.data)
+  if(rmvd_n) {
+    msg = c(msg, paste0(rmvd_n, " rows with negative counts removed from morbidity and mortality dataset."))
+  }
 
   ## Check gender uniformity
   g_list = screen_gender(.data$gender)

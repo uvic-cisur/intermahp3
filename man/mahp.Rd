@@ -22,8 +22,8 @@ API for InterMAHP Shiny App
  \item{pc_sample_vars}{Which prevalence and consumption variables to sample}
  \item{dg}{List of all drinking groups (gender stratified)}
  \item{sn}{Vector of all scenarios as mult. changes in consumption.}
- \item{ext}{Boolean indicating whether relative risk functions are
-   extrapolated linearly (TRUE) or capped (FALSE) after a consumption level
+ \item{ext}{Character indicating whether relative risk functions are
+   extrapolated linearly or capped after a consumption level
    of 150 grams per day}
  \item{cal}{Boolean indiciating whether to try to calibrate absolute risk
    curves for calibrable wholly attributable conditions}
