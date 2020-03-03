@@ -833,8 +833,26 @@ mahp <- R6Class(
       ## init calibrated fractions
 
       if(!is.null(self$rr$calibrated) & nrow(self$rr$calibrated) > 0) {
-        ## I dunno maybe set up some 1.00 base afs and postpone risk function
-        ## calibration until asked for scenarios/drinking groups?
+        self$af$calibrated_waf = full_join(base_gamma, self$rr$calibrated, by = imp$pc_key_vars) %>%
+          mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
+          ## Calibrated are pure absolute risk functions, don't produce fractions.
+          ## Rather, safs are computed directly.
+          mutate(af_current_1.0000 = 1) %>%
+          mutate(af_entire_1.0000 = 1) %>%
+          select(-base_gamma)
+
+        for(.name in names(self$dg)) {
+          af_group = paste('af', .name, '1.0000', sep = '_')
+          self$af$calibrated_waf = mutate(
+            self$af$calibrated_waf,
+            (!! af_group) := pmap_dbl(
+              list(.g = gender, .v = integrand_1.0000),
+              function(.g, .v) {
+                sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])
+              }
+            )
+          )
+        }
       }
 
       self$cmp_scenarios()
@@ -1078,18 +1096,29 @@ mahp <- R6Class(
           }
         }
 
-        # ## init calibrated fractions
-        # if(!is.null(self$rr$calibrated)) {
-        #   ## I dunno maybe set up some 1.00 base afs and postpone risk function
-        #   ## calibration until asked for scenarios/drinking groups?
-        # }
-        #
-        #
-        #
-        # ## Implement scenarios by constructing new integrand vectors, constructing
-        # ## the scenario's integrand, current drinker component, and denominator,
-        # ## then evaluating afs for drinking groups
-        # self$paf = mutate(self$paf, (!! paste0('s', .numeric)) := 0)
+        if(!is.null(self$rr$calibrated) & nrow(self$rr$calibrated) > 0) {
+          self$af$calibrated_waf = left_join(
+            self$af$calibrated_waf, base_gamma, by = imp$pc_key_vars) %>%
+            mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
+            ## Calibrated are pure absolute risk functions, don't produce fractions.
+            ## Rather, safs are computed directly.
+            mutate((!! saf_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+            mutate((!! saf_entire) := eval(sym(saf_current))) %>%
+            select(-base_gamma)
+
+          for(.name in names(self$dg)) {
+            af_group = paste('saf', .name, .suffix, sep = '_')
+            self$af$calibrated_waf = mutate(
+              self$af$calibrated_waf,
+              (!! af_group) := pmap_dbl(
+                list(.g = gender, .v = eval(sym(integrand))),
+                function(.g, .v) {
+                  sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])
+                }
+              )
+            )
+          }
+        }
 
         self$sn = union(self$sn, .value)
 
@@ -1223,6 +1252,19 @@ mahp <- R6Class(
                 )
               )
             }
+          }
+
+          # Calibrated
+          if(!is.null(self$af$calibrated_waf)) {
+            self$af$calibrated_waf = mutate(
+              self$af$calibrated_waf,
+              (!! af_group) := pmap_dbl(
+                list(.g = gender, .v = eval(sym(integrand))),
+                function(.g, .v) {
+                  sum(.v[ceiling(self$dg[[.name]][[.g]][[1]]):ceiling(self$dg[[.name]][[.g]][[2]])])
+                }
+              )
+            )
           }
         }
       } else {
