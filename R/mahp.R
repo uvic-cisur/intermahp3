@@ -385,7 +385,7 @@ mahp <- R6Class(
             # ) %>%
             mutate(
               risk = pmap(
-                list(.w = 1/drinkers, .x = ceiling(self$ub), .y = threshold, .z = k),
+                list(.w = ifelse(phat == 0, phat, 1 / phat), .x = ceiling(self$ub), .y = threshold, .z = k),
                 function(.w, .x, .y, .z) {
                   .w * c(rep(0, .y), (.z * 1:(.x-.y)))
                 }
@@ -720,7 +720,7 @@ mahp <- R6Class(
       # message('Computing Attributable Fractions')
       for(.type in c('base', 'base_former', 'binge', 'binge_former')) {
         .paf = paste0(.type, '_paf')
-        if(!is.null(self$rr[[.type]]) & nrow(self$rr[[.type]]) > 0) {
+        if(!is.null(self$rr[[.type]]) && nrow(self$rr[[.type]]) > 0) {
           if(grepl('base', .type)) {
             self$af[[.paf]] = full_join(self$rr[[.type]], base_gamma, by = c("gender")) %>%
               mutate(integrand_1.0000 := map2(risk, base_gamma, `*`)) %>%
@@ -772,7 +772,7 @@ mahp <- R6Class(
       }
 
       ## init base scaled fractions
-      if(!is.null(self$rr$base_scaled) & nrow(self$rr$base_scaled) > 0) {
+      if(!is.null(self$rr$base_scaled) && nrow(self$rr$base_scaled) > 0) {
         self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
@@ -799,8 +799,8 @@ mahp <- R6Class(
       }
 
       ## init binge scaled fractions
-      if(!is.null(self$rr$binge_scaled) & nrow(self$rr$binge_scaled) > 0) {
-        self$af$binge_scaled_waf = full_join(binge_gammas, self$rr$binge, by = 'gender') %>%
+      if(!is.null(self$rr$binge_scaled) && nrow(self$rr$binge_scaled) > 0) {
+        self$af$binge_scaled_waf = full_join(binge_gammas, self$rr$binge_scaled, by = 'gender') %>%
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
@@ -832,13 +832,13 @@ mahp <- R6Class(
       }
       ## init calibrated fractions
 
-      if(!is.null(self$rr$calibrated) & nrow(self$rr$calibrated) > 0) {
+      if(!is.null(self$rr$calibrated) && nrow(self$rr$calibrated) > 0) {
         self$af$calibrated_waf = full_join(base_gamma, self$rr$calibrated, by = imp$pc_key_vars) %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           ## Calibrated are pure absolute risk functions, don't produce fractions.
           ## Rather, safs are computed directly.
-          mutate(af_current_1.0000 = 1) %>%
-          mutate(af_entire_1.0000 = 1) %>%
+          mutate(af_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
+          mutate(af_entire_1.0000 = af_current_1.0000) %>%
           select(-base_gamma)
 
         for(.name in names(self$dg)) {
@@ -1005,7 +1005,8 @@ mahp <- R6Class(
               mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
               mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
               mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-              mutate((!! saf_current) := eval(sym(saf_entire)))
+              mutate((!! saf_current) := eval(sym(saf_entire))) %>%
+              select(-(!! af_entire))
 
 
             if(grepl('former', .paf)) {
@@ -1096,7 +1097,7 @@ mahp <- R6Class(
           }
         }
 
-        if(!is.null(self$rr$calibrated) & nrow(self$rr$calibrated) > 0) {
+        if(!is.null(self$rr$calibrated) && nrow(self$rr$calibrated) > 0) {
           self$af$calibrated_waf = left_join(
             self$af$calibrated_waf, base_gamma, by = imp$pc_key_vars) %>%
             mutate((!! integrand) := map2(risk, base_gamma, `*`)) %>%
