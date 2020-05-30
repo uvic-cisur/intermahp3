@@ -401,25 +401,30 @@ mahp <- R6Class(
         ## Note that IHME fits entirely into the $base category, while CSUCH and
         ## related require all categories.  Wholly attributable categories
         ## should be able to be used by all.
+        base_vars = if(self$rr_choice == 'who') {
+          c('im', 'gender', 'age_group', 'outcome', 'risk')
+        } else {
+          c('im', 'gender', 'outcome', 'risk')
+        }
         self$rr = list(
           base = temp_rr %>%
             filter(bingea == 0 & !wholly_attr & r_fd == 0 & !is.null(risk)) %>%
-            select(im, gender, outcome, risk),
+            select(base_vars),
           base_former = temp_rr %>%
             filter(bingea == 0 & !wholly_attr & r_fd != 0 & !is.null(risk)) %>%
-            select(im, gender, outcome, r_fd, risk),
+            select(c(base_vars, 'r_fd')),
           binge = temp_rr %>%
             filter(bingea == 1 & !wholly_attr & r_fd == 0 & !is.null(risk)) %>%
-            select(im, gender, outcome, risk, binge_risk),
+            select(c(base_vars, 'binge_risk')),
           binge_former = temp_rr %>%
             filter(bingea == 1 & !wholly_attr & r_fd != 0 & !is.null(risk)) %>%
-            select(im, gender, outcome, r_fd, risk, binge_risk),
+            select(c(base_vars, 'r_fd', 'binge_risk')),
           base_scaled = temp_rr %>%
             filter(bingea == 0 & wholly_attr & !is.null(risk)) %>%
-            select(im, gender, outcome, risk),
+            select(base_vars),
           binge_scaled = temp_rr %>%
             filter(bingea == 1 & wholly_attr & !is.null(risk)) %>%
-            select(im, gender, outcome, risk, binge_risk),
+            select(c(base_vars, 'binge_risk')),
           calibrated = cal_rr, # TODO:: Calibrate absolute risk curves
           im = c(temp_rr$im, cal_rr$im) %>% unique() %>% sort()
         )
@@ -460,12 +465,18 @@ mahp <- R6Class(
             consumption,
           drinkers = population * p_cd
         ) %>% mutate(
+          ## Deprecated along with the pcc_among_drinkers variable
           ## alcohol consumption over all age groups
-          pcad = pcc_g_day * sum(population) / sum(drinkers)
-        ) %>% mutate(
+        #   pcad = pcc_g_day * sum(population) / sum(drinkers)
+        # ) %>% mutate(
           ## mean consumption per age group
-          pcc_among_drinkers = relative_consumption * pcad * sum(drinkers) /
-            sum(relative_consumption*drinkers)
+          pcc_among_popn = pcc_g_day * sum(population) * relative_consumption /
+            sum(relative_consumption * population)
+            ## WHO definition gives Ac among drinkers, intermahp defintions want
+            ## AC among population
+            ## The following is deprecated, as is the pcad variable.
+            # pcc_among_drinkers = relative_consumption * pcad * sum(drinkers) /
+            # sum(relative_consumption*drinkers)
         ) %>%
         ungroup() %>%
         mutate(
@@ -474,7 +485,7 @@ mahp <- R6Class(
         ) %>%
         mutate(
           gamma_shape = 1 / gamma_cs,
-          gamma_scale = pcc_among_drinkers * gamma_cs
+          gamma_scale = pcc_among_popn * gamma_cs
         ) %>%
         mutate(
           glb = pgamma(q = 0.03, shape = gamma_shape, scale = gamma_scale),
@@ -567,14 +578,14 @@ mahp <- R6Class(
             ## course 0 above the binge threshold.
             non_binge_vector = map2(
               non_bingers, bb,
-              ~ifelse(1:ceiling(self$ub) < .y, non_bingers, 0)
+              ~ifelse(1:ceiling(self$ub) < .y, .x, 0)
             ),
             ## The binge vector is the proportion of bingers within the base
             ## gamma function at each integer consumption level.  It is of
             ## course 1 above the binge threshold.
             binge_vector = map2(
               bingers, bb,
-              ~ifelse(1:ceiling(self$ub) < .y, bingers, 1)
+              ~ifelse(1:ceiling(self$ub) < .y, .x, 1)
             )
           ) %>%
           mutate(
@@ -682,7 +693,7 @@ mahp <- R6Class(
 
           sampled %<>% mutate(
             gamma_c = rnorm(norman, gamma_c, gamma_sd),
-            gamma_cs = gamma_c^2,
+            gamma_cs = gamma_c^2
           )
         }
       }
@@ -711,6 +722,9 @@ mahp <- R6Class(
       base_gamma = self$make_gamma(1, F)
       binge_gammas = self$make_gamma(1, T)
 
+      ## init joining variables.  who requires age group.
+      join_by_vars = if(self$rr_choice == 'who') {c('gender', 'age_group')} else {'gender'}
+
       ## Naming conventions for fractions:
       ##  1_2_#
       ##  1: the measure type
@@ -722,11 +736,11 @@ mahp <- R6Class(
         .paf = paste0(.type, '_paf')
         if(!is.null(self$rr[[.type]]) && nrow(self$rr[[.type]]) > 0) {
           if(grepl('base', .type)) {
-            self$af[[.paf]] = full_join(self$rr[[.type]], base_gamma, by = c("gender")) %>%
+            self$af[[.paf]] = full_join(self$rr[[.type]], base_gamma, by = join_by_vars) %>%
               mutate(integrand_1.0000 := map2(risk, base_gamma, `*`)) %>%
               select(-base_gamma)
           } else {
-            self$af[[.paf]] = full_join(binge_gammas, self$rr[[.type]], by = 'gender') %>%
+            self$af[[.paf]] = full_join(binge_gammas, self$rr[[.type]], by = join_by_vars) %>%
               mutate(
                 integrand_1.0000 = pmap(
                   list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
@@ -773,7 +787,7 @@ mahp <- R6Class(
 
       ## init base scaled fractions
       if(!is.null(self$rr$base_scaled) && nrow(self$rr$base_scaled) > 0) {
-        self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = 'gender') %>%
+        self$af$base_scaled_waf = full_join(base_gamma, self$rr$base_scaled, by = join_by_vars) %>%
           mutate(integrand_1.0000 = map2(risk, base_gamma, `*`)) %>%
           mutate(comp_current_1.0000 = map_dbl(integrand_1.0000, sum)) %>%
           mutate(denominator_1.0000 = 1 + comp_current_1.0000) %>%
@@ -800,7 +814,7 @@ mahp <- R6Class(
 
       ## init binge scaled fractions
       if(!is.null(self$rr$binge_scaled) && nrow(self$rr$binge_scaled) > 0) {
-        self$af$binge_scaled_waf = full_join(binge_gammas, self$rr$binge_scaled, by = 'gender') %>%
+        self$af$binge_scaled_waf = full_join(binge_gammas, self$rr$binge_scaled, by = join_by_vars) %>%
           mutate(
             integrand_1.0000 = pmap(
               list(.w = risk, .x = binge_risk, .y = nonbinge_gamma, .z = binge_gamma),
