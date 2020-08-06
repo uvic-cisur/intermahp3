@@ -402,7 +402,7 @@ mahp <- R6Class(
         ## related require all categories.  Wholly attributable categories
         ## should be able to be used by all.
         base_vars = if(self$rr_choice == 'who') {
-          c('im', 'gender', 'age_group', 'outcome', 'risk')
+          c('im', 'gender', 'who_age_group', 'outcome', 'risk')
         } else {
           c('im', 'gender', 'outcome', 'risk')
         }
@@ -596,10 +596,12 @@ mahp <- R6Class(
             binge_gamma = map2(base_gamma, binge_vector, `*`)
           ) %>%
           select(c(imp$pc_key_vars, 'p_fd', 'binge_gamma', 'nonbinge_gamma')) %>%
+          add_who_age_groups(self$rr_choice == "who") %>%
           return()
       } else {
         base_gamma %>%
           select(c(imp$pc_key_vars, drinkers, 'p_fd', 'base_gamma')) %>%
+          add_who_age_groups(self$rr_choice == "who") %>%
           return()
       }
     },
@@ -723,7 +725,8 @@ mahp <- R6Class(
       binge_gammas = self$make_gamma(1, T)
 
       ## init joining variables.  who requires age group.
-      join_by_vars = if(self$rr_choice == 'who') {c('gender', 'age_group')} else {'gender'}
+      join_by_vars = if(self$rr_choice == 'who') {c('gender', 'who_age_group')} else {'gender'}
+
 
       ## Naming conventions for fractions:
       ##  1_2_#

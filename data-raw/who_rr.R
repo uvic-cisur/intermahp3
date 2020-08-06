@@ -409,12 +409,12 @@ who_24 = tibble(
   risk = list(evaluate_rfn(who_24_fn)),
   binge_risk = list(evaluate_rfn(who_24_fn))
 ) %>%
-  crossing(tibble(age_group = c('15-34', '35-64', '65+')))
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+')))
 
 who_52_m = tibble(
   im = '_52',
   gender = 'm',
-  age_group = c('15-34', '35-64', '65+'),
+  who_age_group = c('15-34', '35-64', '65+'),
   ## crossing outcome = m/m
   bingea = 1,
   bingef = 1,
@@ -433,7 +433,7 @@ who_52_m = tibble(
 who_52_w = tibble(
   im = '_52',
   gender = 'w',
-  age_group = c('15-34', '35-64', '65+'),
+  who_age_group = c('15-34', '35-64', '65+'),
   ## crossing outcome = m/m
   bingea = 1,
   bingef = 1,
@@ -452,7 +452,7 @@ who_52_w = tibble(
 who_56_m = tibble(
   im = '_56',
   gender = 'm',
-  age_group = c('15-34', '35-64', '65+'),
+  who_age_group = c('15-34', '35-64', '65+'),
   ## crossing outcome = m/m
   bingea = 1,
   bingef = 1,
@@ -471,7 +471,7 @@ who_56_m = tibble(
 who_56_w = tibble(
   im = '_56',
   gender = 'w',
-  age_group = c('15-34', '35-64', '65+'),
+  who_age_group = c('15-34', '35-64', '65+'),
   ## crossing outcome = m/m
   bingea = 1,
   bingef = 1,
@@ -498,7 +498,7 @@ who_634_m = tibble(
   risk = list(evaluate_rfn(who_634_m_fn)),
   binge_risk = list(evaluate_rfn(who_634_m_fn))
 ) %>%
-  crossing(tibble(age_group = c('15-34', '35-64', '65+')))
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+')))
 
 who_71 = tibble(
   im = '_71',
@@ -511,7 +511,7 @@ who_71 = tibble(
   risk = list(evaluate_rfn(who_71_n_fn)),
   binge_risk = list(evaluate_rfn(who_71_b_fn))
 ) %>%
-  crossing(tibble(age_group = c('15-34', '35-64', '65+')))
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+')))
 
 who_8x = tibble(
   # crossing im = _8.12346
@@ -524,7 +524,7 @@ who_8x = tibble(
   risk = list(evaluate_rfn(who_8x_n_fn)),
   binge_risk = list(evaluate_rfn(who_8x_b_fn))
 ) %>%
-  crossing(tibble(age_group = c('15-34', '35-64', '65+'))) %>%
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+'))) %>%
   crossing(tibble(im = paste0('_8', c(1,2,3,4,6))))
 
 who_9x = tibble(
@@ -538,7 +538,7 @@ who_9x = tibble(
   risk = list(evaluate_rfn(who_9x_n_fn)),
   binge_risk = list(evaluate_rfn(who_9x_b_fn))
 ) %>%
-  crossing(tibble(age_group = c('15-34', '35-64', '65+'))) %>%
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+'))) %>%
   crossing(tibble(im = paste0('_9', c(1,3,4,5))))
 
 who_diff = bind_rows(
@@ -557,7 +557,7 @@ who_rest = cisur_rr %>%
   filter(!grepl('^_[789]', im) | (im %in% c('_85', '_92'))) %>%
   filter(!(im %in% c('_24', '_52', '_56'))) %>%
   filter(!(im %in% c('_63', '_64') & gender == 'm')) %>%
-  crossing(tibble(age_group = c('15-34', '35-64', '65+')))
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+')))
 
 who_rr = bind_rows(who_diff, who_rest)
 
