@@ -888,7 +888,7 @@ mahp <- R6Class(
       ## sanitize the consumption into multiplicative factor
       .numeric = as.numeric(.numeric)
       .suffix = sprintf("%01.4f", .numeric)
-      .sn_name = paste0(if(sn > 1) {'+'}, sprintf('%02.2f', 100 * (.numeric - 1)), '%')
+      .sn_name = paste0(if(.numeric > 1) {'+'}, sprintf('%02.2f', 100 * (.numeric - 1)), '%')
 
       if(.numeric <= 0) {
         warning('Scenario consumption change must be given multiplicatively. Values must be positive.')
