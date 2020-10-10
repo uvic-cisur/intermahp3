@@ -1357,7 +1357,7 @@ mahp <- R6Class(
           ## rewriting a lot of code
           mutate(status = gsub('^...?_([[:alnum:]]*).*', '\\1', af_key)) %>%
           mutate(sn = as.numeric(gsub('.*(.{6})$', '\\1', af_key))) %>%
-          mutate(scenario = ifelse(sn == 1, 'Baseline', paste0(sprintf('%02.2+f', 100 * (sn - 1)), '%'))) %>%
+          mutate(scenario = ifelse(sn == 1, 'Baseline', paste0(if(sn > 1) {'+'}, sprintf('%02.2f', 100 * (sn - 1)), '%'))) %>%
           mutate(cc = str_sub(im, 2, 2)) %>%
           inner_join(
             tibble(
