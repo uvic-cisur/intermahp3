@@ -550,15 +550,20 @@ who_diff = bind_rows(
   who_634_m,
   who_71,
   who_8x,
-  who_9x) %>%
-  crossing(tibble(outcome = c('Morbidity', 'Mortality')))
+  who_9x)
 
-who_rest = cisur_rr %>%
+who_rest = intermahp3::cisur_rr %>%
   filter(!grepl('^_[789]', im) | (im %in% c('_85', '_92'))) %>%
   filter(!(im %in% c('_24', '_52', '_56'))) %>%
   filter(!(im %in% c('_63', '_64') & gender == 'm')) %>%
-  crossing(tibble(who_age_group = c('15-34', '35-64', '65+')))
+  crossing(tibble(who_age_group = c('15-34', '35-64', '65+'))) %>%
+  ## Nov 2020, WHO uses mortality for both mort and morb, so we remove morb
+  ## RRs and carry forward with just mort, then cross after joining the WHO
+  ## specific RRs
+  filter(outcome == "Mortality") %>%
+  select(-outcome)
 
-who_rr = bind_rows(who_diff, who_rest)
+who_rr = bind_rows(who_diff, who_rest)%>%
+  crossing(tibble(outcome = c('Morbidity', 'Mortality')))
 
 usethis::use_data(who_rr, overwrite = TRUE)
