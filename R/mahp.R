@@ -1326,7 +1326,8 @@ mahp <- R6Class(
           .af
         }
 
-        .temp_af <- bind_rows(.temp_af, .af)
+        .temp_af <- bind_rows(.temp_af, .af) %>%
+          left_join(im_condition_category_dictionary, by = 'im')
       }
       .temp_af
     },
@@ -1368,27 +1369,6 @@ mahp <- R6Class(
                   paste0(sprintf('%02.2f', 100 * (sn - 1)), '%')
                 )
               )
-          ) %>%
-          mutate(cc = str_sub(im, 2, 2)) %>%
-          inner_join(
-            tibble(
-              # This is the canonical CC designation for the InterMAHP shiny app
-              # if this is needed LITERALLY anywhere else, we need to include it
-              # as a separate data object, or weave it onto the RR data
-              cc = as.character(1:9),
-              condition_category = c(
-                "Communicable",
-                "Cancer",
-                "Endocrine",
-                "Neuro",
-                "Cardio",
-                "Digestive",
-                "Collisions",
-                "Unintentional",
-                "Intentional"
-              )
-            ),
-            by = "cc"
           )
       }
     }
