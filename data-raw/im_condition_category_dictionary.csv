@@ -1,0 +1,50 @@
+im_condition,im,cc,condition_category
+Larynx cancer,_28,2,Cancer
+Nasopharynx cancer,_29,2,Cancer
+Pharynx cancer,_2A,2,Cancer
+Pancreatitis,_66,6,Digestive
+Unintentional injuries,_80,8,Unintentional
+Self-harm,_90,9,Intentional
+Tuberculosis,_11,1,Communicable
+HIV,_12,1,Communicable
+Lower respiratory tract infections,_13,1,Communicable
+Oral cavity and pharynx cancer,_21,2,Cancer
+Oesophageal cancer,_22,2,Cancer
+Colorectal cancer,_23,2,Cancer
+Liver cancer,_24,2,Cancer
+Pancreatic cancer,_25,2,Cancer
+Larnygeal cancer,_26,2,Cancer
+Breast cancer,_27,2,Cancer
+Diabetes mellitus,_31,3,Endocrine
+Alcohol-induced pseudo-Cushing's syndrome,_32,3,Endocrine
+Alcoholic psychoses,_41,4,Neuro
+Alcohol abuse,_42,4,Neuro
+Alcohol dependence,_43,4,Neuro
+Degeneration of nervous system due to alcohol,_44,4,Neuro
+Epilepsy,_45,4,Neuro
+Alcoholic polyneuropathy,_46,4,Neuro
+Alcoholic myopathy,_47,4,Neuro
+Hypertension,_51,5,Cardio
+Ischaemic heart disease,_52,5,Cardio
+Alcoholic cardiomyopathy,_53,5,Cardio
+Atrial fibrillation and cardiac arrhythmia,_54,5,Cardio
+Haemorrhagic stroke,_55,5,Cardio
+Ischaemic stroke,_56,5,Cardio
+Oesophageal varices,_57,5,Cardio
+Alcoholic gastritis,_61,6,Digestive
+Liver cirrhosis,_62,6,Digestive
+Acute pancreatitis,_63,6,Digestive
+Chronic pancreatitis,_64,6,Digestive
+Alcohol-induced pancreatitis,_65,6,Digestive
+Motor vehicle collisions,_71,7,Collisions
+Falls,_81,8,Unintentional
+Drowning,_82,8,Unintentional
+Fires,_83,8,Unintentional
+Accidental poisoning by substances other than alcohol,_84,8,Unintentional
+Accidental poisoning by alcohol,_85,8,Unintentional
+Other unintentional injuries,_86,8,Unintentional
+Intentional self-poisoning by substances other than alcohol,_91,9,Intentional
+Intentional self-poisoning by alcohol,_92,9,Intentional
+Other intentional self-harm,_93,9,Intentional
+Assault / homicide,_94,9,Intentional
+Other intentional injuries,_95,9,Intentional

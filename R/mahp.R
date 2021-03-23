@@ -1326,10 +1326,10 @@ mahp <- R6Class(
           .af
         }
 
-        .temp_af <- bind_rows(.temp_af, .af) %>%
-          left_join(im_condition_category_dictionary, by = 'im')
+        .temp_af <- bind_rows(.temp_af, .af)
       }
-      .temp_af
+      .temp_af %>%
+        left_join(im_condition_category_dictionary, by = 'im')
     },
 
 
