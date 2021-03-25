@@ -1016,19 +1016,25 @@ mahp <- R6Class(
                 select(-p_fd, -nonbinge_gamma, -binge_gamma)
             }
 
-            self$af[[.paf]] = self$af[[.paf]] %>%
-              mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
-              mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
-              mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
-              mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
-              mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
-              mutate((!! saf_current) := eval(sym(saf_entire))) %>%
-              select(-(!! af_entire))
-
-
             if(grepl('former', .paf)) {
               self$af[[.paf]] = self$af[[.paf]] %>%
-                mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator)))
+                mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+                mutate((!! denominator) := 1 + comp_former + eval(sym(comp_current))) %>%
+                mutate((!! af_entire) := (comp_former + eval(sym(comp_current))) / eval(sym(denominator))) %>%
+                mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+                mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+                mutate((!! saf_current) := eval(sym(adj_scenario)) * eval(sym(comp_current)) / eval(sym(denominator))) %>%
+                mutate((!! saf_former) := eval(sym(adj_scenario)) * comp_former / eval(sym(denominator))) %>%
+                select(-(!! af_entire))
+            } else {
+              self$af[[.paf]] = self$af[[.paf]] %>%
+                mutate((!! comp_current) := map_dbl(eval(sym(integrand)), sum)) %>%
+                mutate((!! denominator) := 1 + eval(sym(comp_current))) %>%
+                mutate((!! af_entire) := eval(sym(comp_current)) / eval(sym(denominator))) %>%
+                mutate((!! adj_scenario) := (1 - af_entire_1.0000) / (1 - eval(sym(af_entire)))) %>%
+                mutate((!! saf_entire) := eval(sym(adj_scenario)) * eval(sym(af_entire))) %>%
+                mutate((!! saf_current) := eval(sym(af_entire))) %>%
+                select(-(!! af_entire))
             }
 
             ## When adding a scenario, compute for all existing drinking groups as well
