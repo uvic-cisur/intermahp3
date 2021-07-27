@@ -500,7 +500,7 @@ mahp <- R6Class(
         mutate(
           ## Deflation factor --- the consumption measure must have area exactly
           ## p_cd within the specified bounds
-          df = p_cd / nc
+          df = if(self$rr_choice == "ihme") {p_cd / (p_cd + p_la)} else {p_cd} / nc
         ) %>%
         mutate(
           ## p_bat is "bingers above threshold", i.e. daily bingers on average.
